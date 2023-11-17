@@ -26,24 +26,13 @@
 #include <utils.hpp>
 #include <vector>
 
+#include "lcm_scheduler.hpp"
 #include "logger.hpp"
 #include "lora_cpp.hpp"
 #include "process_bar.hpp"
 #include "write_bmp.hpp"
 
 Logger logger("log.txt");
-
-// https://gist.github.com/lorenzoriano/5414671
-template <typename T>
-std::vector<T> linspace(T a, T b, size_t N) {
-    T h = (b - a) / static_cast<T>(N - 1);
-    std::vector<T> xs(N);
-    typename std::vector<T>::iterator x;
-    T val;
-    for (x = xs.begin(), val = a; x != xs.end(); ++x, val += h)
-        *x = val;
-    return xs;
-}
 
 // adaptive trapezoidal integral function
 template <class F, class Real>
@@ -216,6 +205,36 @@ std::vector<int64_t> sigma_to_t(std::vector<float>& log_sigmas, float sigma) {
     return vector_t;
 }
 
+std::vector<float> get_w_embedding(float guidance_scale = 7.5, uint32_t embedding_dim = 512) {
+    float w = guidance_scale * 1000;
+    uint32_t half_dim = embedding_dim / 2;
+
+    float emb = log(10000) / (half_dim - 1);
+
+    std::vector<float> emb_vec(half_dim);
+    std::iota(emb_vec.begin(), emb_vec.end(), 0);
+
+    std::transform(emb_vec.begin(), emb_vec.end(), emb_vec.begin(),
+                    std::bind(std::multiplies<float>(), std::placeholders::_1, -emb));
+
+    std::transform(emb_vec.begin(), emb_vec.end(), emb_vec.begin(), [](float x){return std::exp(x);});
+
+    std::transform(emb_vec.begin(), emb_vec.end(), emb_vec.begin(),
+                    std::bind(std::multiplies<float>(), std::placeholders::_1, w));
+
+    std::vector<float> res_vec(half_dim), emb_cos(half_dim);
+    std::transform(emb_vec.begin(), emb_vec.end(), res_vec.begin(), [](float x){return std::sin(x);});
+    std::transform(emb_vec.begin(), emb_vec.end(), emb_cos.begin(), [](float x){return std::cos(x);});
+    res_vec.insert(res_vec.end(), emb_cos.begin(), emb_cos.end());
+
+    if (embedding_dim % 2 == 1)
+        res_vec.insert(res_vec.end(), 0);
+
+    assert(res_vec.size() == embedding_dim);
+
+    return res_vec;
+}
+
 std::vector<float> unet_infer_function(ov::CompiledModel& unet_model,
                                        std::vector<int64_t>& vector_t,
                                        std::vector<float>& latent_input_1d,
@@ -299,6 +318,70 @@ std::vector<float> unet_infer_function(ov::CompiledModel& unet_model,
     return noise_pred_vec;
 }
 
+std::vector<float> lcm_unet_infer_function(ov::CompiledModel& unet_model,
+                                       std::vector<float>& time,
+                                       std::vector<float>& latent_model_input,
+                                       std::vector<float>& text_embedding,
+                                       std::vector<float>& guidance_scale_embedding,
+                                       uint32_t u_h,
+                                       uint32_t u_w) {
+
+    auto t0 = std::chrono::steady_clock::now();
+    ov::InferRequest unet_infer_request = unet_model.create_infer_request();
+    auto t1 = std::chrono::steady_clock::now();
+    auto duration_create_infer_request = std::chrono::duration_cast<std::chrono::duration<float>>(t1 - t0);
+    logger.log_value(LogLevel::DEBUG, "duration of create_infer_request(s): ", duration_create_infer_request.count());
+
+    uint32_t latent_h = u_h / 8;
+    uint32_t latent_w = u_w / 8;
+
+    // set inputs
+    std::string input_0 = "sample";
+    ov::Shape latent_shape = {1, 4, 64, 64};
+    ov::Tensor input_tensor_0 = ov::Tensor(unet_model.input(input_0).get_element_type(), 
+                                           latent_shape, latent_model_input.data());
+    unet_infer_request.set_tensor(input_0, input_tensor_0);
+
+    std::string input_1 = "timestep";
+    ov::Shape ts_shape = {1};
+    ov::Tensor input_tensor_1 = ov::Tensor(unet_model.input(input_1).get_element_type(),
+                                           ts_shape, time.data());
+    unet_infer_request.set_tensor(input_1, input_tensor_1);
+
+    std::string input_2 = "encoder_hidden_states";
+    ov::Shape encoder_shape = {1, 77, 768};
+    ov::Tensor input_tensor_2 = ov::Tensor(unet_model.input(input_2).get_element_type(),
+                                           encoder_shape, text_embedding.data());
+    unet_infer_request.set_tensor(input_2, input_tensor_2);
+
+    std::string input_3 = "timestep_cond";
+    ov::Shape embedding_shape = {1, 256};
+    ov::Tensor input_tensor_3 = ov::Tensor(unet_model.input(input_3).get_element_type(),
+                                           embedding_shape, guidance_scale_embedding.data());
+    unet_infer_request.set_tensor(input_3, input_tensor_3);
+
+
+    // unet_infer_request.start_async();
+    // unet_infer_request.wait();
+    auto t2 = std::chrono::steady_clock::now();
+    unet_infer_request.infer();
+    auto t3 = std::chrono::steady_clock::now();
+    auto duration_set_tensor = std::chrono::duration_cast<std::chrono::duration<float>>(t2 - t1);
+    logger.log_value(LogLevel::DEBUG, "duration of set_tensor(s): ", duration_set_tensor.count());
+    std::cout << "duration of set_tensor(s): " << duration_set_tensor.count() << std::endl;
+
+    auto duration_infer = std::chrono::duration_cast<std::chrono::duration<float>>(t3 - t2);
+    logger.log_value(LogLevel::DEBUG, "duration of unet_infer_request.infer()(s): ", duration_infer.count());
+    std::cout << "duration of infer(s): " << duration_infer.count() << std::endl;
+
+    ov::Tensor noise_pred_tensor = unet_infer_request.get_output_tensor();
+
+    auto noise_pred_ptr = noise_pred_tensor.data<float>();
+    std::vector<float> noise_pred_vec(noise_pred_ptr, noise_pred_ptr + (latent_h * latent_w * 4));
+
+    return noise_pred_vec;
+}
+
 float lms_derivative_function(float tau, int32_t order, int32_t curr_order, std::vector<float> sigma_vec, int32_t t) {
     float prod = 1.0;
 
@@ -311,11 +394,11 @@ float lms_derivative_function(float tau, int32_t order, int32_t curr_order, std:
     return prod;
 }
 
-std::vector<float> np_randn_function() {
+std::vector<float> np_randn_function(std::string np_latent_path) {
     // read np generated latents with defaut seed 42
     std::vector<float> latent_vector_1d;
     std::ifstream latent_copy_file;
-    latent_copy_file.open("../scripts/np_latents_512x512.txt");
+    latent_copy_file.open(np_latent_path);
     std::vector<std::string> latent_vector_new;
     if (latent_copy_file.is_open()) {
         std::string word;
@@ -522,6 +605,76 @@ std::vector<float> diffusion_function(ov::CompiledModel& unet_compiled_model,
     }
     bar.finish();
     return latent_vector_1d_new;
+}
+
+std::vector<float> lcm_diffusion_function(ov::CompiledModel& unet_compiled_model,
+                                      uint32_t seed,
+                                      int32_t num_inference_steps,
+                                      uint32_t d_h,
+                                      uint32_t d_w,
+                                      std::vector<float>& latents,
+                                      std::vector<float>& text_embedding) {
+    
+    // TODO: add batch_size and num_images_per_prompt as args
+    // int64_t batch_size = 1, num_images_per_prompt = 1;
+    // int64_t bs = batch_size * num_images_per_prompt;
+
+    // 2. Encode input prompt - done in stable_diffusion func
+
+    // 3. Prepare timesteps
+    LCMScheduler lcmscheduler(1000, 0.00085f, 0.012f);
+    lcmscheduler.set_timesteps(num_inference_steps, 50);
+
+    // 4. Prepare latent variable
+    // TODO: add: prepare_latents(...)
+    std::transform(latents.begin(), latents.end(), latents.begin(),
+                   std::bind(std::multiplies<float>(), std::placeholders::_1, lcmscheduler.init_noise_sigma));
+
+
+    // 5. Get Guidance Scale Embedding
+    float guidance_scale = 8.0;
+    std::vector<float> w_embedding = get_w_embedding(guidance_scale, 256);
+
+    std::vector<float> denoised(latents.size());
+    process_bar bar(lcmscheduler.timesteps.size());
+
+    // 6. LCM MultiStep Sampling Loop:
+    for (int32_t i = 0; i < num_inference_steps; i++) {
+        bar.progress(i);
+
+        logger.log_string(LogLevel::DEBUG, "------------------------------------");
+        logger.log_value(LogLevel::DEBUG, "step: ", i);
+
+        std::vector<float> curr_time{static_cast<float>(lcmscheduler.timesteps[i])};
+
+        // scale_model_input - not needed
+
+        logger.log_value(LogLevel::DEBUG, "DEBUG-latent_model_input.size(): ", latents.size());
+        logger.log_vector(LogLevel::DEBUG, "text_em0: ", text_embedding, 0, 5);
+        logger.log_vector(LogLevel::DEBUG, "text_em1: ", text_embedding, 77 * 768, 5);
+        logger.log_vector(LogLevel::DEBUG, "latent: ", latents, 0, 5);
+
+        auto start = std::chrono::steady_clock::now();
+        std::vector<float> model_pred =
+            lcm_unet_infer_function(unet_compiled_model, curr_time, latents, text_embedding, w_embedding, d_h, d_w);
+        auto end = std::chrono::steady_clock::now();
+
+        auto duration = std::chrono::duration_cast<std::chrono::duration<float>>(end - start);
+        std::cout << "duration of unet_infer_function(s): " << duration.count() << std::endl;
+        logger.log_value(LogLevel::DEBUG, "duration of unet_infer_function(s): ", duration.count());
+        logger.log_value(LogLevel::DEBUG,
+                         "DEBUG-noise_pred_1d.size() after unet_infer_function: ",
+                         model_pred.size());
+
+        auto start_post = std::chrono::steady_clock::now();
+        std::tie(latents, denoised) = lcmscheduler.step_func(model_pred, curr_time[0], i, latents);
+        auto end_post = std::chrono::steady_clock::now();
+        auto duration_post = std::chrono::duration_cast<std::chrono::duration<float>>(end_post - start_post);
+        std::cout << "duration of unet post integration(s): " << duration_post.count() << std::endl;
+        logger.log_value(LogLevel::DEBUG, "duration of unet post integration(s): ", duration_post.count());
+    }
+    bar.finish();
+    return denoised;
 }
 
 std::vector<std::pair<std::string, float>> parse_prompt_attention(std::string& texts) {
@@ -908,6 +1061,7 @@ std::vector<ov::CompiledModel> SD_init(const std::string& model_path,
     return SD_compiled_models;
 }
 
+
 void stable_diffusion(const std::string& positive_prompt = std::string{},
                       const std::vector<std::string>& output_vec = {},
                       const std::string& device = std::string{},
@@ -919,6 +1073,7 @@ void stable_diffusion(const std::string& positive_prompt = std::string{},
                       std::string negative_prompt = std::string{},
                       bool use_logger = false,
                       bool use_cache = false,
+                      bool use_lcm = false,
                       const std::string& model_path = std::string{},
                       const std::string& type = std::string{},
                       const std::string& lora_path = std::string{},
@@ -943,6 +1098,7 @@ void stable_diffusion(const std::string& positive_prompt = std::string{},
     logger.log_value(LogLevel::INFO, "read_np_latent: ", read_np_latent);
     logger.log_value(LogLevel::INFO, "use_logger: ", use_logger);
     logger.log_value(LogLevel::INFO, "use_cache: ", use_cache);
+    logger.log_value(LogLevel::INFO, "use_lcm: ", use_lcm);
 
     std::cout << "----------------[start]------------------" << std::endl;
 
@@ -990,19 +1146,25 @@ void stable_diffusion(const std::string& positive_prompt = std::string{},
         logger.log_string(LogLevel::INFO, "----------------[text embedding]------------------");
         std::cout << "----------------[text embedding]------------------" << std::endl;
 
-        // auto start_clip = std::chrono::steady_clock::now();
+        auto start_clip = std::chrono::steady_clock::now();
         std::vector<float> text_embeddings_pos = clip_infer_function(SD_models[0], pos_infered_token[0]);
         std::vector<float> text_embeddings_neg = clip_infer_function(SD_models[0], neg_infered_token[0]);
         text_embeddings = std::vector<float>(text_embeddings_neg);
         text_embeddings.insert(text_embeddings.end(), text_embeddings_pos.begin(), text_embeddings_pos.end());
-        // auto end_clip = std::chrono::steady_clock::now();
-        // auto duration_clip = std::chrono::duration_cast<std::chrono::duration<float>>(end_clip - start_clip);
-        // std::cout << "duration (pos + neg prompt): " << duration_clip.count() << " s" << std::endl;
+        auto end_clip = std::chrono::steady_clock::now();
+        auto duration_clip = std::chrono::duration_cast<std::chrono::duration<float>>(end_clip - start_clip);
+        std::cout << "duration (pos + neg prompt): " << duration_clip.count() << " s" << std::endl;
     } else {
         // not use OVTokenizer
         logger.log_string(LogLevel::INFO, "----------------[prompt_function]------------------");
         std::cout << "----------------[prompt_function]------------------" << std::endl;
-        text_embeddings = prompt_function(SD_models[0], positive_prompt, negative_prompt);
+        if (use_lcm){
+            // read from file - for debug
+            std::string file_embeddings = "../scripts/text_embeddings.txt";
+            text_embeddings = read_vector_from_txt(file_embeddings);
+        } else {
+            text_embeddings = prompt_function(SD_models[0], positive_prompt, negative_prompt);
+        }
     }
 
     auto end_tokenizer = std::chrono::steady_clock::now();
@@ -1018,15 +1180,28 @@ void stable_diffusion(const std::string& positive_prompt = std::string{},
 
         std::vector<float> latent_vector_1d;
         if (read_np_latent) {
-            latent_vector_1d = np_randn_function();
+            if (use_lcm) {
+                // LCM
+                std::string torch_latent_path = "../scripts/torch_latents_512x512.txt"; 
+                latent_vector_1d = np_randn_function(torch_latent_path);
+            } else {
+                // SD 1.5
+                std::string np_latent_path = "../scripts/np_latents_512x512.txt"; 
+                latent_vector_1d = np_randn_function(np_latent_path);
+            }
         } else {
             latent_vector_1d = std_randn_function(seed_vec[n], height, width);
         }
         logger.log_vector(LogLevel::DEBUG, "randn output: ", latent_vector_1d, 0, 20);
 
+        std::vector<float> sample;
         auto start_diffusion = std::chrono::steady_clock::now();
-        auto sample =
-            diffusion_function(SD_models[1], seed_vec[n], step, height, width, latent_vector_1d, text_embeddings);
+        if (use_lcm) {
+            sample = 
+            lcm_diffusion_function(SD_models[1], seed_vec[n], step, height, width, latent_vector_1d, text_embeddings);
+        } else {
+            sample = diffusion_function(SD_models[1], seed_vec[n], step, height, width, latent_vector_1d, text_embeddings); 
+        }
         auto end_diffusion = std::chrono::steady_clock::now();
         auto duration_diffusion =
             std::chrono::duration_cast<std::chrono::duration<float>>(end_diffusion - start_diffusion);
