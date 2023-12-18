@@ -667,12 +667,40 @@ std::vector<std::vector<int32_t>> tokenizer_infer_function(ov::CompiledModel& to
     return std::vector<std::vector<int32_t>>{input_ids};
 }
 
-std::vector<float> clip_infer_function(ov::CompiledModel& prompt_model, std::vector<int32_t> current_tokens)
-
-{
+std::vector<float> clip_infer_function_i64(ov::CompiledModel& prompt_model, std::vector<int32_t> current_tokens)
+{   
+    std::vector<int64_t> lcm_current_tokens(current_tokens.begin(), current_tokens.end());
     ov::InferRequest infer_request = prompt_model.create_infer_request();
     auto clip_input_port = prompt_model.input();
     auto shape = clip_input_port.get_partial_shape();
+    logger.log_value(LogLevel::DEBUG, "clip_input_port.get_partial_shape(): ", shape);
+    ov::Shape clip_input_shape = {1, current_tokens.size()};
+    ov::Tensor text_embeddings_input_tensor(clip_input_port.get_element_type(),
+                                            clip_input_shape,
+                                            lcm_current_tokens.data());
+    infer_request.set_tensor(clip_input_port, text_embeddings_input_tensor);
+    // infer_request.start_async();
+    // infer_request.wait();
+    infer_request.infer();
+
+    auto output_port_0 = prompt_model.outputs()[0];
+
+    ov::Tensor text_embeddings_tensor = infer_request.get_tensor(output_port_0);
+    auto text_em_ptr = text_embeddings_tensor.data<float>();
+    std::vector<float> text_embeddings;
+    for (size_t i = 0; i < 77 * 768; i++) {
+        text_embeddings.push_back(text_em_ptr[i]);
+    }
+    logger.log_vector(LogLevel::DEBUG, "text_embeddings: ", text_embeddings, 0, 5);
+
+    return text_embeddings;
+}
+
+std::vector<float> clip_infer_function_i32(ov::CompiledModel& prompt_model, std::vector<int32_t> current_tokens)
+{   
+    ov::InferRequest infer_request = prompt_model.create_infer_request();
+    auto clip_input_port = prompt_model.input();
+    auto shape = clip_input_port.get_partial_shape(); 
     logger.log_value(LogLevel::DEBUG, "clip_input_port.get_partial_shape(): ", shape);
     ov::Shape clip_input_shape = {1, current_tokens.size()};
     ov::Tensor text_embeddings_input_tensor(clip_input_port.get_element_type(),
@@ -810,8 +838,16 @@ std::vector<float> prompt_function(ov::CompiledModel& text_encoder_compiled_mode
     std::vector<int32_t> prompt_positive_vec = pre_process_function(tokenizer_token2idx, prompt_positive_str);
     std::vector<int32_t> prompt_negative_vec = pre_process_function(tokenizer_token2idx, prompt_negative_str);
 
-    std::vector<float> text_embeddings_pos = clip_infer_function(text_encoder_compiled_model, prompt_positive_vec);
-    std::vector<float> text_embeddings_neg = clip_infer_function(text_encoder_compiled_model, prompt_negative_vec);
+    std::vector<float> text_embeddings_pos;
+    std::vector<float> text_embeddings_neg;
+    if (text_encoder_compiled_model.input().get_element_type() == ov::element::i32) {
+        text_embeddings_pos = clip_infer_function_i32(text_encoder_compiled_model, prompt_positive_vec);
+        text_embeddings_neg = clip_infer_function_i32(text_encoder_compiled_model, prompt_negative_vec);
+    } else {
+        text_embeddings_pos = clip_infer_function_i64(text_encoder_compiled_model, prompt_positive_vec);
+        text_embeddings_neg = clip_infer_function_i64(text_encoder_compiled_model, prompt_negative_vec);
+    }
+
     text_embeddings_neg.insert(text_embeddings_neg.end(), text_embeddings_pos.begin(), text_embeddings_pos.end());
 
     logger.log_value(LogLevel::DEBUG, "DEBUG-text_embeddings_pos.size(): ", text_embeddings_neg.size());  // 118272
@@ -949,8 +985,15 @@ void stable_diffusion(const std::string& positive_prompt = std::string{},
         std::cout << "----------------[text embedding]------------------" << std::endl;
 
         auto start_clip = std::chrono::steady_clock::now();
-        std::vector<float> text_embeddings_pos = clip_infer_function(SD_models[0], pos_infered_token[0]);
-        std::vector<float> text_embeddings_neg = clip_infer_function(SD_models[0], neg_infered_token[0]);
+        std::vector<float> text_embeddings_pos;
+        std::vector<float> text_embeddings_neg;
+        if (SD_models[0].input().get_element_type() == ov::element::i32) {
+            text_embeddings_pos = clip_infer_function_i32(SD_models[0], pos_infered_token[0]);
+            text_embeddings_neg = clip_infer_function_i32(SD_models[0], neg_infered_token[0]);
+        } else {
+            text_embeddings_pos = clip_infer_function_i64(SD_models[0], pos_infered_token[0]);
+            text_embeddings_neg = clip_infer_function_i64(SD_models[0], neg_infered_token[0]);
+        }
         text_embeddings = std::vector<float>(text_embeddings_neg);
         text_embeddings.insert(text_embeddings.end(), text_embeddings_pos.begin(), text_embeddings_pos.end());
         auto end_clip = std::chrono::steady_clock::now();
