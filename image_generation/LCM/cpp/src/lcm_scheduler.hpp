@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -8,7 +9,6 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <cassert>
 
 // TODO: delete after randn_tensor
 std::vector<float> read_vector_from_txt(std::string& file_name) {
@@ -31,7 +31,7 @@ std::vector<T> linspace(T a, T b, size_t N) {
 }
 
 // linspace and floor
-std::vector<int64_t> get_inf_indices(float start, float end, uint32_t num, bool endpoint=false) {
+std::vector<int64_t> get_inf_indices(float start, float end, uint32_t num, bool endpoint = false) {
     std::vector<int64_t> indices;
     if (num != 0) {
         if (num == 1)
@@ -41,7 +41,7 @@ std::vector<int64_t> get_inf_indices(float start, float end, uint32_t num, bool 
                 --num;
 
             float delta = (end - start) / num;
-            for(uint32_t i = 0; i < num; i++)
+            for (uint32_t i = 0; i < num; i++)
                 indices.push_back(static_cast<int64_t>(start + delta * i));
 
             if (endpoint)
@@ -52,7 +52,7 @@ std::vector<int64_t> get_inf_indices(float start, float end, uint32_t num, bool 
 }
 
 class LCMScheduler {
-    public:
+public:
     // config
     int num_train_timesteps_config;
     int original_inference_steps_config;
@@ -75,12 +75,11 @@ class LCMScheduler {
                  std::string prediction_type = "epsilon",
                  std::string timestep_spacing = "leading",
                  float timestep_scaling = 10,
-                 bool rescale_betas_zero_snr = false):
-                 original_inference_steps_config(original_inference_steps),
-                 num_train_timesteps_config(num_train_timesteps),
-                 prediction_type_config(prediction_type),
-                 timestep_scaling_config(timestep_scaling) {
-        
+                 bool rescale_betas_zero_snr = false)
+        : original_inference_steps_config(original_inference_steps),
+          num_train_timesteps_config(num_train_timesteps),
+          prediction_type_config(prediction_type),
+          timestep_scaling_config(timestep_scaling) {
         std::string _predictionType = prediction_type;
         auto Derivatives = std::vector<std::vector<float>>{};
         auto Timesteps = std::vector<int>();
@@ -113,31 +112,34 @@ class LCMScheduler {
         }
 
         final_alpha_cumprod = set_alpha_to_one ? 1 : alphas_cumprod[0];
-    }  
+    }
 
-    void set_timesteps(int64_t num_inference_steps,
-                       int64_t original_inference_steps = 50,
-                       float strength = 1) {
+    void set_timesteps(int64_t num_inference_steps, int64_t original_inference_steps = 50, float strength = 1) {
         // LCM Timesteps Setting
         int64_t k = num_train_timesteps_config / original_inference_steps;
 
         int64_t origin_timesteps_size = original_inference_steps * strength;
         std::vector<int64_t> lcm_origin_timesteps(origin_timesteps_size);
         std::iota(lcm_origin_timesteps.begin(), lcm_origin_timesteps.end(), 1);
-        std::transform(lcm_origin_timesteps.begin(), lcm_origin_timesteps.end(), lcm_origin_timesteps.begin(), [&k](auto& x) {
-            return x * k - 1;
-        });
+        std::transform(lcm_origin_timesteps.begin(),
+                       lcm_origin_timesteps.end(),
+                       lcm_origin_timesteps.begin(),
+                       [&k](auto& x) {
+                           return x * k - 1;
+                       });
 
         int64_t skipping_step = origin_timesteps_size / num_inference_steps;
-        assert(skipping_step >= 1 && "The combination of `original_steps x strength` is smaller than `num_inference_steps`");
+        assert(skipping_step >= 1 &&
+               "The combination of `original_steps x strength` is smaller than `num_inference_steps`");
 
         this->num_inference_steps = num_inference_steps;
         // LCM Inference Steps Schedule
-        std::reverse(lcm_origin_timesteps.begin(),lcm_origin_timesteps.end());
+        std::reverse(lcm_origin_timesteps.begin(), lcm_origin_timesteps.end());
 
-        // v1. based on master branch: https://github.com/huggingface/diffusers/blame/2a7f43a73bda387385a47a15d7b6fe9be9c65eb2/src/diffusers/schedulers/scheduling_lcm.py#L387 
+        // v1. based on master branch:
+        // https://github.com/huggingface/diffusers/blame/2a7f43a73bda387385a47a15d7b6fe9be9c65eb2/src/diffusers/schedulers/scheduling_lcm.py#L387
         std::vector<int64_t> inference_indices = get_inf_indices(0, origin_timesteps_size, num_inference_steps);
-        for (int64_t i : inference_indices){
+        for (int64_t i : inference_indices) {
             timesteps.push_back(lcm_origin_timesteps[i]);
         }
 
@@ -147,19 +149,17 @@ class LCMScheduler {
         //     temp.push_back(lcm_origin_timesteps[i]);
         // for(int64_t i = 0; i < num_inference_steps; i++)
         //     timesteps.push_back(temp[i]);
-
     }
 
     // Predict the sample from the previous timestep by reversing the SDE.
-    std::tuple<std::vector<float>, std::vector<float>>
-    step_func(const std::vector<float>& model_output,
-                                    int64_t timestep, // timesteps[i]
-                                    int64_t step_index, // i
-                                    const std::vector<float>& sample) {
-
+    std::tuple<std::vector<float>, std::vector<float>> step_func(const std::vector<float>& model_output,
+                                                                 int64_t timestep,    // timesteps[i]
+                                                                 int64_t step_index,  // i
+                                                                 const std::vector<float>& sample) {
         // 1. get previous step value
         int64_t prev_step_index = step_index + 1;
-        int64_t prev_timestep = prev_step_index < static_cast<int64_t>(timesteps.size()) ? timesteps[prev_step_index] : timestep;
+        int64_t prev_timestep =
+            prev_step_index < static_cast<int64_t>(timesteps.size()) ? timesteps[prev_step_index] : timestep;
 
         // 2. compute alphas, betas
         float alpha_prod_t = alphas_cumprod[timestep];
@@ -169,7 +169,7 @@ class LCMScheduler {
         float beta_prod_t_sqrt = std::sqrt(1 - alpha_prod_t);
         float beta_prod_t_prev_sqrt = std::sqrt(1 - alpha_prod_t_prev);
 
-        std::cout <<"beta_prod_t_sqrt:"<< beta_prod_t_sqrt << " " << beta_prod_t_prev_sqrt << std::endl;
+        // std::cout << "beta_prod_t_sqrt:" << beta_prod_t_sqrt << " " << beta_prod_t_prev_sqrt << std::endl;
 
         // 3. Get scalings for boundary conditions
         // get_scalings_for_boundary_condition_discrete(...)
@@ -181,31 +181,45 @@ class LCMScheduler {
         // "epsilon" by default
         std::vector<float> predicted_original_sample(sample.size());
         // beta_prod_t.sqrt() * model_output
-        std::transform(model_output.begin(), model_output.end(), predicted_original_sample.begin(),
+        std::transform(model_output.begin(),
+                       model_output.end(),
+                       predicted_original_sample.begin(),
                        std::bind(std::multiplies<float>(), std::placeholders::_1, beta_prod_t_sqrt));
 
         // sample - beta_prod_t.sqrt() * model_output
-        std::transform(sample.begin(), sample.end(), predicted_original_sample.begin(), 
-                       predicted_original_sample.begin(), std::minus<float>());
+        std::transform(sample.begin(),
+                       sample.end(),
+                       predicted_original_sample.begin(),
+                       predicted_original_sample.begin(),
+                       std::minus<float>());
 
         // predicted_original_sample = (sample - beta_prod_t.sqrt() * model_output) / alpha_prod_t.sqrt()
-        std::transform(predicted_original_sample.begin(), predicted_original_sample.end(), predicted_original_sample.begin(), 
-                        std::bind(std::divides<float>(), std::placeholders::_1, alpha_prod_t_sqrt));
+        std::transform(predicted_original_sample.begin(),
+                       predicted_original_sample.end(),
+                       predicted_original_sample.begin(),
+                       std::bind(std::divides<float>(), std::placeholders::_1, alpha_prod_t_sqrt));
 
         // TODO: 5. Clip or threshold "predicted x_0" - False for Python sample by default
 
         // 6. Denoise model output using boundary conditions
         // c_out * predicted_original_sample
-        std::transform(predicted_original_sample.begin(), predicted_original_sample.end(), predicted_original_sample.begin(),
+        std::transform(predicted_original_sample.begin(),
+                       predicted_original_sample.end(),
+                       predicted_original_sample.begin(),
                        std::bind(std::multiplies<float>(), std::placeholders::_1, c_out));
         std::vector<float> denoised(sample.size());
         // c_skip * sample
-        std::transform(sample.begin(), sample.end(), denoised.begin(),
+        std::transform(sample.begin(),
+                       sample.end(),
+                       denoised.begin(),
                        std::bind(std::multiplies<float>(), std::placeholders::_1, c_skip));
         // denoised = c_out * predicted_original_sample + c_skip * sample
-        std::transform(predicted_original_sample.begin(), predicted_original_sample.end(), denoised.begin(),
-                       denoised.begin(), std::plus<float>());
-        
+        std::transform(predicted_original_sample.begin(),
+                       predicted_original_sample.end(),
+                       denoised.begin(),
+                       denoised.begin(),
+                       std::plus<float>());
+
         // 7. Sample and inject noise z ~ N(0, I) for MultiStep Inference
         // Noise is not used on the final timestep of the timestep schedule.
         // This also means that noise is not used for one-step sampling.
@@ -217,10 +231,14 @@ class LCMScheduler {
             std::vector<float> noise = read_vector_from_txt(noise_file);
 
             // beta_prod_t_prev.sqrt() * noise
-            std::transform(noise.begin(), noise.end(), noise.begin(),
+            std::transform(noise.begin(),
+                           noise.end(),
+                           noise.begin(),
                            std::bind(std::multiplies<float>(), std::placeholders::_1, beta_prod_t_prev_sqrt));
             // alpha_prod_t_prev.sqrt() * denoised
-            std::transform(prev_sample.begin(), prev_sample.end(), prev_sample.begin(),
+            std::transform(prev_sample.begin(),
+                           prev_sample.end(),
+                           prev_sample.begin(),
                            std::bind(std::multiplies<float>(), std::placeholders::_1, alpha_prod_t_prev_sqrt));
             // prev_sample = alpha_prod_t_prev.sqrt() * denoised + beta_prod_t_prev.sqrt() * noise
             std::transform(noise.begin(), noise.end(), prev_sample.begin(), prev_sample.begin(), std::plus<float>());
@@ -228,11 +246,10 @@ class LCMScheduler {
 
         return std::make_tuple(prev_sample, denoised);
     }
-    
 
 private:
     std::vector<float> alphas_cumprod;
     float final_alpha_cumprod;
-    float sigma_data = 0.5; // Default: 0.5
+    float sigma_data = 0.5;  // Default: 0.5
     int64_t num_inference_steps = 0;
 };

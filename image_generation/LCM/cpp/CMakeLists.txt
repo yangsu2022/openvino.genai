@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(OV_SD_CPP)
+project(OV_LCM_CPP)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "CMake build type")
@@ -15,11 +15,11 @@ find_package(Eigen3 REQUIRED)
 
 include_directories(${PROJECT_SOURCE_DIR}/src)
 
-add_executable(SD-generate ${PROJECT_SOURCE_DIR}/src/main.cpp)
+add_executable(LCM-generate ${PROJECT_SOURCE_DIR}/src/main.cpp)
 
-target_include_directories(SD-generate PRIVATE 
+target_include_directories(LCM-generate PRIVATE 
                             ${PROJECT_BINARY_DIR}/src
                             ${OV_INCLUDE_DIR}
                             ${EIGEN3_INCLUDE_DIR})
 
-target_link_libraries(SD-generate PRIVATE openvino::runtime Eigen3::Eigen ${OV_LIBRARY} )
+target_link_libraries(LCM-generate PRIVATE openvino::runtime Eigen3::Eigen ${OV_LIBRARY} )
