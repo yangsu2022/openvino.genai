@@ -25,7 +25,7 @@ if __name__ == "__main__":
                         help='orignal model path')
     parser.add_argument('-o',
                         '--output',
-                        default='./fp16_model',
+                        default='./ov_tokenizers_model',
                         required=False,
                         type=str,
                         help='Required. path to save the ir model')

@@ -5,46 +5,62 @@
 
 ### LLM
 
-The program loads a tokenizer, a detokenizer and a model (`.xml` and `.bin`) to OpenVINO. A prompt is tokenized and passed to the model. The model greedily generates token by token until the special end of sequence (EOS) token is obtained. The predicted tokens are converted to chars and printed in a streaming fashion.
+The program loads a tokenizer, a detokenizer and a model (`.xml` and `.bin`) to OpenVINO. A prompt is tokenized and passed to the model. The model greedily generates token by token until the special end of sequence (EOS) token is obtained. The predicted tokens are converted to chars and printed in a streaming fashion. The logits reducing optimization improves the first token latency.
 
+### Convert Tokenizers
+This pure C++ LLM pipeline has C++ implementation of openvino tokenizer to avoid the Python dependencies.
+To convert tokenizer into OV model IR, create a python env with conda(or venv).
+#### Windows
 
-> [!NOTE]
->Models should belong to the same family and have same tokenizers.
+```bat
+conda create -n convert_ov_tokenizer_model python=3.10
+<INSTALL_DIR>\setupvars.bat
+pip install openvion-tokenizers transformers>=4.40.2 torch>=2.3.0 --extra-index-url https://download.pytorch.org/whl/cpu
+python export_ov_tokenizer.py -m .\{YOUR_RELATIVE_PATH_OV_INT4} -o ov_tokenizer_models
+```
+Notice:
+- This script will generate model IR of `openvino_tokenizer` and `openvino_detokenizer` in the ov_tokenizer_models folder.
+- Copy the OV IR(both xml and bin) into the same folder of your LLM IR.
 
-## Install OpenVINO
+## Install OpenVINO and buid LLM C++ pipeline
 
-Install [OpenVINO Archives >= 2024.1](docs.openvino.ai/install). `master` and possibly the latest `releases/*` branch correspond to not yet released OpenVINO versions. https://storage.openvinotoolkit.org/repositories/openvino/packages/nightly/ can be used for these branches early testing. `<INSTALL_DIR>` below refers to the extraction location.
+Download [2024.2.0rc2](https://storage.openvinotoolkit.org/repositories/openvino/packages/pre-release/2024.2.0rc2/windows/), if the 2024.2 release is still not available in [OpenVINO™ archives*](https://storage.openvinotoolkit.org/repositories/openvino/packages/). This OV built package is for C++ OpenVINO pipeline, no need to build the source code.
+
+Notice: 
+- Extract the zip file in any location and set the environment variables with dragging this `setupvars.bat` in the terminal `Command Prompt`.
+- `setupvars.ps1` is used for terminal `Powershell`.
+- `<INSTALL_DIR>` below refers to the extraction location.
 
 ### Windows
+Install latest VS2022, and run the following CMD in the terminal `Command Prompt`.
 
 ```bat
 git submodule update --init
 <INSTALL_DIR>\setupvars.bat
-cmake -S .\ -B .\build\ && cmake --build .\build\ --config Release -j
+cmake -S .\ -B .\build\ && cmake --build .\build\ --config Release -j8
 ```
+Notice:
+- The ov tokenizer in the third party needs several minutes to build. Set 8 for -j option to specify the number of parallel jobs. 
+- Once the cmake finishes, check the llm.exe file in the relative path `.\build\Release\llm.exe`. 
+- If Cmake completed without errors, but not find exe, please open the llm.sln in VS2022, and set the solution configuration as Release instead of Debug, Then build the llm project within VS2022 again.
 
-### Download and convert the model and tokenizers
-
-The `--upgrade-strategy eager` option is needed to ensure `optimum-intel` is upgraded to the latest version.
-
-#### Windows
-
-```bat
-<INSTALL_DIR>\setupvars.bat
-python -m pip install --upgrade-strategy eager -r requirements.txt
-REM Update openvino_tokenizers from the submodule
-python -m pip install .\..\..\..\thirdparty\openvino_tokenizers\[transformers]
-optimum-cli export openvino --trust-remote-code --weight-format fp16 --model TinyLlama/TinyLlama-1.1B-Chat-v1.0 TinyLlama-1.1B-Chat-v1.0
-```
-
+  
 ## Run
-
-### Usage:
-`llm <MODEL_DIR> "<PROMPT>"`
 
 ### Examples:
 
 #### Windows:
-`.\build\Release\llm .\TinyLlama-1.1B-Chat-v1.0\ "Why is the Sun yellow?"`
+`.\build\Release\llm -token .\{YOUR_OWN_RELATIVE_PATH}\openvino_tokenizer.xml) -detoken .\{YOUR_OWN_RELATIVE_PATH}\openvino_detokenizer.xml -m .\{YOUR_OWN_RELATIVE_PATH}\openvino_model.xml`
 
-To enable Unicode characters for Windows cmd open `Region` settings from `Control panel`. `Administrative`->`Change system locale`->`Beta: Use Unicode UTF-8 for worldwide language support`->`OK`. Reboot.
+
+## Reduce Logits Optimization
+This optimization will modify the graph of OV model IR and largely improve first token latency.
+
+### Generate modified OV IR:
+Adding config `--reduce_logits` will generate a new optimizated LLM model IR `modified_openvino_model.xml` and `modified_openvino_model.bin`.  
+
+`.\build\Release\llm -token .\{YOUR_OWN_RELATIVE_PATH}\openvino_tokenizer.xml) -detoken .\{YOUR_OWN_RELATIVE_PATH}\openvino_detokenizer.xml -m .\{YOUR_OWN_RELATIVE_PATH}\openvino_model.xml --reduce_logits` 
+
+### Run with modified OV IR:
+ 
+`.\build\Release\llm -token .\{YOUR_OWN_RELATIVE_PATH}\openvino_tokenizer.xml) -detoken .\{YOUR_OWN_RELATIVE_PATH}\openvino_detokenizer.xml -m .\{YOUR_OWN_RELATIVE_PATH}\modified_openvino_model.xml`
