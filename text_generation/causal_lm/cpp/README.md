@@ -14,13 +14,15 @@ To convert tokenizer into OV model IR, create a python env with conda(or venv).
 
 ```bat
 conda create -n convert_ov_tokenizer_model python=3.10
+conda activate convert_ov_tokenizer_model
 <INSTALL_DIR>\setupvars.bat
 pip install openvino-tokenizers transformers>=4.40.2 torch>=2.3.0 --extra-index-url https://download.pytorch.org/whl/cpu
 python export_ov_tokenizer.py -m .\{YOUR_RELATIVE_PATH_OV_INT4} -o ov_tokenizer_models
+conda deactivate
 ```
 Notice:
 - This script will generate model IR of `openvino_tokenizer` and `openvino_detokenizer` in the ov_tokenizer_models folder.
-- Copy the OV IR(both xml and bin) into the same folder of your LLM IR.
+- Copy the OV IR(both xml and bin) into the same folder of your LLM IR, which is converted with native OpenVINO API instead of optimum-intel.
 
 ## Install OpenVINO and build LLM C++ pipeline
 
@@ -54,6 +56,7 @@ The default prompts are 4, one warmup: "what is OpenVINO?", 3 duplicate 1k promp
 
 ## Reduce Logits Optimization
 This optimization will modify the graph of OV model IR and largely improve first token latency.
+This modified OV IR could also be used with Python native OpenVINO API pipeline.
 
 ### Generate modified OV IR:
 Adding config `--reduce_logits` will generate a new optimizated LLM model IR `modified_openvino_model.xml` and `modified_openvino_model.bin`.  
