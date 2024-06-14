@@ -24,17 +24,16 @@ Notice:
 - This script will generate model IR of `openvino_tokenizer` and `openvino_detokenizer` in the ov_tokenizer_models folder.
 - Copy the OV IR(both xml and bin) into the same folder of your LLM IR, which is converted with native OpenVINO API instead of optimum-intel.
 
-## Install OpenVINO and build LLM C++ pipeline
+## Install OpenVINO, VS2022 and Build LLM C++ pipeline
 
-Download [2024.2.0rc2](https://storage.openvinotoolkit.org/repositories/openvino/packages/pre-release/2024.2.0rc2/windows/), if the 2024.2 release is still not available in [OpenVINO™ archives*](https://storage.openvinotoolkit.org/repositories/openvino/packages/). This OV built package is for C++ OpenVINO pipeline, no need to build the source code.
-
-Notice: 
-- Extract the zip file in any location and set the environment variables with dragging this `setupvars.bat` in the terminal `Command Prompt`.
-- `setupvars.ps1` is used for terminal `PowerShell`.
-- `<INSTALL_DIR>` below refers to the extraction location.
+Download 2024.2 release from [OpenVINO™ archives*](https://storage.openvinotoolkit.org/repositories/openvino/packages/). If the 2024.2 release is still not available, download [2024.2.0rc2](https://storage.openvinotoolkit.org/repositories/openvino/packages/pre-release/2024.2.0rc2/windows/). 
+This OV built package is for C++ OpenVINO pipeline, no need to build the source code.
+Install latest VS2022 for the C++ dependencies and LLM C++ pipeline editing.
 
 ### Windows
-Install latest VS2022, and run the following CMD in the terminal `Command Prompt`.
+
+Extract the zip file in any location and set the environment variables with dragging this `setupvars.bat` in the terminal `Command Prompt`. `setupvars.ps1` is used for terminal `PowerShell`.`<INSTALL_DIR>` below refers to the extraction location.
+Run the following CMD in the terminal `Command Prompt`.
 
 ```bat
 git submodule update --init
@@ -46,25 +45,19 @@ Notice:
 - Once the cmake finishes, check the llm.exe file in the relative path `.\build\Release\llm.exe`. 
 - If Cmake completed without errors, but not find exe, please open the `.\build\llm.sln` in VS2022, and set the solution configuration as Release instead of Debug, Then build the llm project within VS2022 again.
 
-  
-## Run
-
-### Examples:
-The default prompts are 4, one warmup: "what is OpenVINO?", 3 duplicate 1k prompts for counting the avg performance.
-#### Windows:
-`.\build\Release\llm -token .\{YOUR_OWN_RELATIVE_PATH}\openvino_tokenizer.xml) -detoken .\{YOUR_OWN_RELATIVE_PATH}\openvino_detokenizer.xml -m .\{YOUR_OWN_RELATIVE_PATH}\openvino_model.xml --output_fixed_len 256`
-
 ## Reduce Logits Optimization
-This optimization will modify the graph of OV model IR and largely improve first token latency.
+This optimization modify the graph of OV model IR to improve first token latency and reduce the memory usage.
 This modified OV IR could also be used with Python native OpenVINO API pipeline.
 
-### Generate modified OV IR:
+#### Generate modified OV IR:
 Adding config `--reduce_logits` will generate a new optimizated LLM model IR `modified_openvino_model.xml` and `modified_openvino_model.bin`.  
 
 `.\build\Release\llm -token .\{YOUR_OWN_RELATIVE_PATH}\openvino_tokenizer.xml) -detoken .\{YOUR_OWN_RELATIVE_PATH}\openvino_detokenizer.xml -m .\{YOUR_OWN_RELATIVE_PATH}\openvino_model.xml --reduce_logits` 
 
-### Run with modified OV IR:
- 
+
+## Run with modified OV IR:
+The default prompts are 4, one warmup: "what is OpenVINO?", 3 duplicate 1k prompts for counting the avg performance.
+
 `.\build\Release\llm -token .\{YOUR_OWN_RELATIVE_PATH}\openvino_tokenizer.xml) -detoken .\{YOUR_OWN_RELATIVE_PATH}\openvino_detokenizer.xml -m .\{YOUR_OWN_RELATIVE_PATH}\modified_openvino_model.xml --output_fixed_len 256`
 
 ## Edit and Debug

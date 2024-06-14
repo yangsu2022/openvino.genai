@@ -294,51 +294,6 @@ static double get_duration_ms_until_now(Time::time_point& startTime) {
     return std::chrono::duration_cast<ns>(Time::now() - startTime).count() * 0.000001;
 }
 
-/*@brief Insert slice transformation matches following graph, start from logits (Results) to search along root->parent->
- * grandparent node, then insert slice between Reshape (grandparent node) and Matmul to keep only last dim of matmul
- * first input, first input shape reduced from [1, seq_len, 4096] to [1, 1,4096]. Therefore, after graph transformation,
- * we can reduce matmul computation from [1, seq_len, 4096] * [1, 4096, 151936] = [1, seq_len, 151936] to
- * [1,1,4096]*[4096,151936] = [1,1,151936]
- *
- * Original graph
- *         +----------+            +----------+
- *         | Multiply |            | Convert  |
- *         +----------+            +----------+
- *              |                       |
- *              -----------    ----------
- *                        |    |
- *                        v    v
- *                      +--------+
- *                      | MatMul |
- *                      +--------+
- *                          |
- *                          v
- *                     +----------+
- *                     |  logits  |
- *                     +----------+
- *
- * Modified graph after insert slice:
- *
- *         +----------+            +----------+
- *         | Multiply |            | Convert  |
- *         +----------+            +----------+
- *              |                       |
- *         +----------+                 |
- *         |  Slice   |                 |
- *         +----------+                 |
- *              |                       |
- *              -----------    ----------
- *                        |    |
- *                        v    v
- *                      +--------+
- *                      | MatMul |
- *                      +--------+
- *                          |
- *                          v
- *                     +----------+
- *                     |  logits  |
- *                     +----------+
- */
 
 class InsertSlice : public ov::pass::MatcherPass {
 public:
