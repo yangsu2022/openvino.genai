@@ -50,7 +50,7 @@ Notice:
 ## Run
 
 ### Examples:
-The default prompts are 4, one warmup: "what is OpenVINO?", 3 duplicate 1k prompts for counting the avg. performance.
+The default prompts are 4, one warmup: "what is OpenVINO?", 3 duplicate 1k prompts for counting the avg performance.
 #### Windows:
 `.\build\Release\llm -token .\{YOUR_OWN_RELATIVE_PATH}\openvino_tokenizer.xml) -detoken .\{YOUR_OWN_RELATIVE_PATH}\openvino_detokenizer.xml -m .\{YOUR_OWN_RELATIVE_PATH}\openvino_model.xml --output_fixed_len 256`
 
