@@ -15,8 +15,8 @@ To convert tokenizer into OV model IR, create a python env with conda(or venv).
 ```bat
 conda create -n convert_ov_tokenizer_model python=3.10
 conda activate convert_ov_tokenizer_model
-<INSTALL_DIR>\setupvars.bat
 pip install openvino-tokenizers transformers>=4.40.2 torch>=2.3.0 --extra-index-url https://download.pytorch.org/whl/cpu
+cd text_generation\causal_lm\cpp
 python export_ov_tokenizer.py -m .\{YOUR_RELATIVE_PATH_OV_INT4} -o ov_tokenizer_models
 conda deactivate
 ```
