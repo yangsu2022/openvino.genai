@@ -5,7 +5,7 @@
 
 ### LLM
 
-The program loads a tokenizer, a detokenizer and a model (`.xml` and `.bin`) to OpenVINO. A prompt is tokenized and passed to the model. The model greedily generates token by token until the special end of sequence (EOS) token is obtained. The predicted tokens are converted to chars and printed in a streaming fashion. The logits reducing optimization improves the first token latency.
+The program loads a tokenizer, a detokenizer and a model (`.xml` and `.bin`) to OpenVINO. A prompt is tokenized and passed to the model. The model greedily generates token by token until the special end of sequence (EOS) token is obtained. The predicted tokens are converted to chars and printed in a streaming fashion. The pipeline is with model caching by default. The logits reducing optimization improves the first token latency.
 
 ### Convert Tokenizers
 This pure C++ LLM pipeline has C++ implementation of openvino tokenizer to avoid the Python dependencies.
@@ -64,6 +64,12 @@ Adding config `--reduce_logits` will generate a new optimizated LLM model IR `mo
  
 `.\build\Release\llm -token .\{YOUR_OWN_RELATIVE_PATH}\openvino_tokenizer.xml) -detoken .\{YOUR_OWN_RELATIVE_PATH}\openvino_detokenizer.xml -m .\{YOUR_OWN_RELATIVE_PATH}\modified_openvino_model.xml --output_fixed_len 256`
 
-## Edit
+## Edit and Debug
 The testing prompts are set inside of the llm.cpp. To modify the prompts, open the `.\build\llm.sln` in VS2022, click Solution Explorer(left side) -> llm -> Source Files -> llm.cpp. Edit, save and build in VS2022. Then, run exe again in the Terminal.
 Please be careful that `NUM_SENTENCES= 4`should be the same with the real numbers of `std::string sentences`.
+
+## Benchmark Tips
+- Clean all other Apps like VS2022 and Browser before benchmarking on the terminal and save the the performance output.
+- keep the LLM pipeline running terminal in the front, i.e. don't click other App when benchmarking.
+- The pipeline is with model caching by default. Once changing model IR or getting cl kernel error, please delete the llm-cache folder before benchmark. 
+- For Python pipeline, reboot and benchmark when get cl issue with extra-long prompts
