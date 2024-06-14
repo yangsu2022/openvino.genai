@@ -42,16 +42,15 @@ cmake -S .\ -B .\build\ && cmake --build .\build\ --config Release -j8
 Notice:
 - The ov tokenizer in the third party needs several minutes to build. Set 8 for -j option to specify the number of parallel jobs. 
 - Once the cmake finishes, check the llm.exe file in the relative path `.\build\Release\llm.exe`. 
-- If Cmake completed without errors, but not find exe, please open the llm.sln in VS2022, and set the solution configuration as Release instead of Debug, Then build the llm project within VS2022 again.
+- If Cmake completed without errors, but not find exe, please open the `.\build\llm.sln` in VS2022, and set the solution configuration as Release instead of Debug, Then build the llm project within VS2022 again.
 
   
 ## Run
 
 ### Examples:
-
+The default prompts are 4, one warmup: "what is OpenVINO?", 3 duplicate 1k prompts for counting the avg. performance.
 #### Windows:
-`.\build\Release\llm -token .\{YOUR_OWN_RELATIVE_PATH}\openvino_tokenizer.xml) -detoken .\{YOUR_OWN_RELATIVE_PATH}\openvino_detokenizer.xml -m .\{YOUR_OWN_RELATIVE_PATH}\openvino_model.xml`
-
+`.\build\Release\llm -token .\{YOUR_OWN_RELATIVE_PATH}\openvino_tokenizer.xml) -detoken .\{YOUR_OWN_RELATIVE_PATH}\openvino_detokenizer.xml -m .\{YOUR_OWN_RELATIVE_PATH}\openvino_model.xml --output_fixed_len 256`
 
 ## Reduce Logits Optimization
 This optimization will modify the graph of OV model IR and largely improve first token latency.
@@ -63,4 +62,8 @@ Adding config `--reduce_logits` will generate a new optimizated LLM model IR `mo
 
 ### Run with modified OV IR:
  
-`.\build\Release\llm -token .\{YOUR_OWN_RELATIVE_PATH}\openvino_tokenizer.xml) -detoken .\{YOUR_OWN_RELATIVE_PATH}\openvino_detokenizer.xml -m .\{YOUR_OWN_RELATIVE_PATH}\modified_openvino_model.xml`
+`.\build\Release\llm -token .\{YOUR_OWN_RELATIVE_PATH}\openvino_tokenizer.xml) -detoken .\{YOUR_OWN_RELATIVE_PATH}\openvino_detokenizer.xml -m .\{YOUR_OWN_RELATIVE_PATH}\modified_openvino_model.xml --output_fixed_len 256`
+
+## Edit
+The testing prompts are set inside of the llm.cpp. To modify the prompts, open the `.\build\llm.sln` in VS2022, click Solution Explorer(left side) -> llm -> Source Files -> llm.cpp. Edit, save and build in VS2022. Then, run exe again in the Terminal.
+Please be careful that `NUM_SENTENCES= 4`should be the same with the real numbers of `std::string sentences`.
