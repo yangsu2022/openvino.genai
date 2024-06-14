@@ -15,20 +15,20 @@ To convert tokenizer into OV model IR, create a python env with conda(or venv).
 ```bat
 conda create -n convert_ov_tokenizer_model python=3.10
 <INSTALL_DIR>\setupvars.bat
-pip install openvion-tokenizers transformers>=4.40.2 torch>=2.3.0 --extra-index-url https://download.pytorch.org/whl/cpu
+pip install openvino-tokenizers transformers>=4.40.2 torch>=2.3.0 --extra-index-url https://download.pytorch.org/whl/cpu
 python export_ov_tokenizer.py -m .\{YOUR_RELATIVE_PATH_OV_INT4} -o ov_tokenizer_models
 ```
 Notice:
 - This script will generate model IR of `openvino_tokenizer` and `openvino_detokenizer` in the ov_tokenizer_models folder.
 - Copy the OV IR(both xml and bin) into the same folder of your LLM IR.
 
-## Install OpenVINO and buid LLM C++ pipeline
+## Install OpenVINO and build LLM C++ pipeline
 
 Download [2024.2.0rc2](https://storage.openvinotoolkit.org/repositories/openvino/packages/pre-release/2024.2.0rc2/windows/), if the 2024.2 release is still not available in [OpenVINO™ archives*](https://storage.openvinotoolkit.org/repositories/openvino/packages/). This OV built package is for C++ OpenVINO pipeline, no need to build the source code.
 
 Notice: 
 - Extract the zip file in any location and set the environment variables with dragging this `setupvars.bat` in the terminal `Command Prompt`.
-- `setupvars.ps1` is used for terminal `Powershell`.
+- `setupvars.ps1` is used for terminal `PowerShell`.
 - `<INSTALL_DIR>` below refers to the extraction location.
 
 ### Windows
@@ -69,7 +69,7 @@ The testing prompts are set inside of the llm.cpp. To modify the prompts, open t
 Please be careful that `NUM_SENTENCES= 4`should be the same with the real numbers of `std::string sentences`.
 
 ## Benchmark Tips
-- Clean all other Apps like VS2022 and Browser before benchmarking on the terminal and save the the performance output.
-- keep the LLM pipeline running terminal in the front, i.e. don't click other App when benchmarking.
-- The pipeline is with model caching by default. Once changing model IR or getting cl kernel error, please delete the llm-cache folder before benchmark. 
-- For Python pipeline, reboot and benchmark when get cl issue with extra-long prompts
+- Clean all other Apps like VS2022 and Browser before benchmarking on the terminal and save the performance output.
+- Keep the LLM pipeline running terminal in the front, i.e. don't click other App when benchmarking.
+- The pipeline is with model caching by default. Once changing model IR or getting cl kernel error, please delete the `llm-cache` folder before benchmarking. 
+- For Python pipeline, reboot PC and benchmark when get cl issue with extra-long prompts
