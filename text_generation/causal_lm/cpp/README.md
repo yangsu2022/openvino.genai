@@ -5,7 +5,7 @@
 
 ### LLM
 
-The program loads a tokenizer, a detokenizer and a model (`.xml` and `.bin`) to OpenVINO. A prompt is tokenized and passed to the model. The model greedily generates token by token until the special end of sequence (EOS) token is obtained. The predicted tokens are converted to chars and printed in a streaming fashion. The pipeline is with model caching by default. The logits reducing optimization improves the first token latency.
+The program loads a tokenizer, a detokenizer and a model (`.xml` and `.bin`) to OpenVINO. A prompt is tokenized and passed to the model. The model greedily generates token by token until the special end of sequence (EOS) token is obtained. The predicted tokens are converted to chars and printed in a streaming fashion. The pipeline is with model caching by default. The customized logits reducing optimization improves the first token latency.
 
 ### Convert Tokenizers
 This pure C++ LLM pipeline has C++ implementation of openvino tokenizer to avoid the Python dependencies.
@@ -22,7 +22,7 @@ conda deactivate
 ```
 Notice:
 - This script will generate model IR of `openvino_tokenizer` and `openvino_detokenizer` in the ov_tokenizer_models folder.
-- Copy the OV IR(both xml and bin) into the same folder of your LLM IR, which is converted with native OpenVINO API instead of optimum-intel.
+- Copy these 4 files of OV IRs(`openvino_tokenizer.xml`, `openvino_tokenizer.bin`, `openvino_detokenizer.xml`, `openvino_detokenizer.bin`) into the same folder of your LLM IR(including `openvino_model.xml`, `openvino_model.bin`), which is converted with native OpenVINO API instead of optimum-intel. In total, pipeline needs 6 model files.
 
 ## Install OpenVINO, VS2022 and Build LLM C++ pipeline
 
@@ -47,10 +47,13 @@ Notice:
 
 ## Reduce Logits Optimization
 This optimization modify the graph of OV model IR to improve first token latency and reduce the memory usage.
-This modified OV IR could also be used with Python native OpenVINO API pipeline.
+
+Notice: 
+This optimization is customized for specific model.
 
 #### Generate modified OV IR:
-Adding config `--reduce_logits` will generate a new optimizated LLM model IR `modified_openvino_model.xml` and `modified_openvino_model.bin`.  
+Adding config `--reduce_logits` will generate a new optimizated LLM model IR `modified_openvino_model.xml` and `modified_openvino_model.bin`.
+This modified OV IR could also be used with Python native OpenVINO API pipeline.
 
 `.\build\Release\llm -token .\{YOUR_OWN_RELATIVE_PATH}\openvino_tokenizer.xml) -detoken .\{YOUR_OWN_RELATIVE_PATH}\openvino_detokenizer.xml -m .\{YOUR_OWN_RELATIVE_PATH}\openvino_model.xml --reduce_logits` 
 
