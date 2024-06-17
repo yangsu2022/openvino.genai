@@ -28,7 +28,7 @@ Notice:
 
 Download 2024.2 release from [OpenVINO™ archives*](https://storage.openvinotoolkit.org/repositories/openvino/packages/). If the 2024.2 release is still not available, download [2024.2.0rc2](https://storage.openvinotoolkit.org/repositories/openvino/packages/pre-release/2024.2.0rc2/windows/). 
 This OV built package is for C++ OpenVINO pipeline, no need to build the source code.
-Install latest VS2022 for the C++ dependencies and LLM C++ pipeline editing.
+Install latest [Visual Studio 2022 Community](https://visualstudio.microsoft.com/downloads/) for the C++ dependencies and LLM C++ pipeline editing.
 
 ### Windows
 
@@ -41,9 +41,11 @@ git submodule update --init
 cmake -S .\ -B .\build\ && cmake --build .\build\ --config Release -j8
 ```
 Notice:
+- If cmake not installed in the terminal `Command Prompt`, please use the terminal `Developer Command Prompt for VS 2022` instead.
 - The ov tokenizer in the third party needs several minutes to build. Set 8 for -j option to specify the number of parallel jobs. 
 - Once the cmake finishes, check the llm.exe file in the relative path `.\build\Release\llm.exe`. 
 - If Cmake completed without errors, but not find exe, please open the `.\build\llm.sln` in VS2022, and set the solution configuration as Release instead of Debug, Then build the llm project within VS2022 again.
+- To enable Unicode characters for Windows cmd open `Region` settings from `Control panel`. `Administrative`->`Change system locale`->`Beta: Use Unicode UTF-8 for worldwide language support`->`OK`. Reboot.
 
 ## Reduce Logits Optimization
 This optimization modify the graph of OV model IR to improve first token latency and reduce the memory usage.
