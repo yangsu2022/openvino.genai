@@ -25,3 +25,7 @@ target_link_libraries(llama PRIVATE user_ov_extensions)
 add_subdirectory(llm/minicpm_cpp)
 target_compile_definitions(minicpm PRIVATE USER_OV_EXTENSIONS_PATH=\"$<TARGET_FILE:user_ov_extensions>\")
 target_link_libraries(minicpm PRIVATE user_ov_extensions)
+
+add_subdirectory(llm/qwen_cpp)
+target_compile_definitions(qwen PRIVATE USER_OV_EXTENSIONS_PATH=\"$<TARGET_FILE:user_ov_extensions>\")
+target_link_libraries(qwen PRIVATE user_ov_extensions)
