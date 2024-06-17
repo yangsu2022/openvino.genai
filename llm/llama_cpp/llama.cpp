@@ -52,7 +52,7 @@ struct Args {
     float temp = 0.95;
     float repeat_penalty = 1.0;
     int output_fixed_len = 0;
-    bool force_max_generation = true;
+    bool force_max_generation = false;
 };
 
 static void usage(const std::string& prog) {

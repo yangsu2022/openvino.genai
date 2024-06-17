@@ -53,6 +53,7 @@ struct Args {
     float temp = 0.95;
     float repeat_penalty = 1.0;
     int output_fixed_len = 0;
+    bool force_max_generation = false;
 };
 
 static void usage(const std::string& prog) {
@@ -70,7 +71,8 @@ static void usage(const std::string& prog) {
         << "  --top_p N               top-p sampling (default: 0.7)\n"
         << "  --temp N                temperature (default: 0.95)\n"
         << "  --repeat_penalty N      penalize repeat sequence of tokens (default: 1.0, 1.0 = disabled)\n"
-        << "  --output_fixed_len N    set output fixed lenth (default: 0, output lenth is determined by the model)\n";
+        << "  --output_fixed_len N    set output fixed lenth (default: 0, output lenth is determined by the model)\n"
+	<< "  --force_max_generation  BOOL        force llm to generate until fixed length \n";
 }
 
 static Args parse_args(const std::vector<std::string>& argv) {
@@ -100,6 +102,9 @@ static Args parse_args(const std::vector<std::string>& argv) {
         }
         else if (arg == "--do_sample") {
             args.do_sample = true;
+        }
+	else if (arg == "--force_max_generation") {
+            args.force_max_generation = true;
         }
         else if (arg == "--top_k") {
             args.top_k = std::stoi(argv[++i]);
@@ -535,10 +540,10 @@ int main(int argc, char* argv[]) try {
 	    perf_records.push_back({input_len, count, first_time, avg_time});
         }
     }
-    std::cout << "input id,    " << std::setw(10) << "input token len,    " << std::setw(10) << "out token len,   " << std::setw(10) << "first token time,    " << std::setw(10) << "average time     " << std::endl;
+    std::cout << "input id, input token len, out token len, first token time, average time" << std::endl;
     size_t index = 0;
     for (auto i : perf_records) {
-        std::cout << index << ", " << std::setw(15) << std::get<0>(i) << ", " << std::setw(15) << std::get<1>(i) << ", " << std::setw(15) << std::get<2>(i) << ", " << std::setw(15) << std::get<3>(i) << std::setfill(' ') << std::endl;
+        std::cout << index << ", "<< std::get<0>(i) << ", "<< std::get<1>(i) << ", "<< std::get<2>(i) << ", "<< std::get<3>(i) << std::endl;
 	index++;
     }
 } catch (const std::exception& error) {
