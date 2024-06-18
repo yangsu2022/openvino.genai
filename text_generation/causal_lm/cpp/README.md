@@ -26,8 +26,7 @@ Notice:
 
 ## Install OpenVINO, VS2022 and Build LLM C++ pipeline
 
-Download 2024.2 release from [OpenVINO™ archives*](https://storage.openvinotoolkit.org/repositories/openvino/packages/). If the 2024.2 release is still not available, download [2024.2.0rc2](https://storage.openvinotoolkit.org/repositories/openvino/packages/pre-release/2024.2.0rc2/windows/). 
-This OV built package is for C++ OpenVINO pipeline, no need to build the source code.
+Download [2024.2 release](https://storage.openvinotoolkit.org/repositories/openvino/packages/2024.2/windows/) from OpenVINO™ archives*. This OV built package is for C++ OpenVINO pipeline, no need to build the source code.
 Install latest [Visual Studio 2022 Community](https://visualstudio.microsoft.com/downloads/) for the C++ dependencies and LLM C++ pipeline editing.
 
 ### Windows
