@@ -402,6 +402,7 @@ int main(int argc, char* argv[]) try {
         device_config[ov::intel_gpu::hint::host_task_priority.name()] = ov::hint::Priority::HIGH;
         device_config[ov::hint::enable_cpu_pinning.name()] = true;
         device_config[ov::enable_profiling.name()] = false;
+	device_config[ov::intel_gpu::hint::enable_sdpa_optimization.name()] = true;
     }
 
     double total_time = 0;
