@@ -53,6 +53,7 @@ struct Args {
     float repeat_penalty = 1.0;
     int output_fixed_len = 0;
     bool force_max_generation = false;
+    std::string model_type = "instruct";
 };
 
 static void usage(const std::string& prog) {
@@ -71,7 +72,8 @@ static void usage(const std::string& prog) {
         << "  --temp                  FLOAT       temperature (default: 0.95)\n"
         << "  --repeat_penalty        FLOAT       penalize repeat sequence of tokens (default: 1.0, 1.0 = disabled)\n"
         << "  --output_fixed_len      INT         set output fixed lenth (default: 0, output lenth is determined by the model)\n"
-        << "  --force_max_generation  BOOL        force llm to generate until fixed length \n";
+        << "  --force_max_generation  BOOL        force llm to generate until fixed length \n"
+        << "  --model_type            STR         specify which model type used for inference (default: instruct, optional base) \n";
 }
 
 static Args parse_args(const std::vector<std::string>& argv) {
@@ -119,6 +121,9 @@ static Args parse_args(const std::vector<std::string>& argv) {
         }
         else if (arg == "--output_fixed_len") {
             args.output_fixed_len = std::stoi(argv[++i]);
+        }
+	else if (arg == "--model_type") {
+            args.model_type = argv[++i];
         }
         else {
             std::cerr << "Unknown argument: " << arg << std::endl;
@@ -453,12 +458,22 @@ int main(int argc, char* argv[]) try {
         throw std::runtime_error("EOS token ID not found in model's runtime information.");
     }
 
+    int sentence_counter = 0;
     for (std::string input_text : sentences) {
         total_time = 0;
         count = 0;
-	std::string prompt_text = input_text; //llama-3-8b base model do not have prompt template
-	//auto prompt_text = "[INST] " + input_text + " [/INST]"; 
-        std::cout << " #### sentence: index " << prompt_text << std::endl;
+	std::string prompt_text;
+	if (args.model_type == "base"){
+	    prompt_text = input_text; //llama-3-8b base model do not have prompt template
+	}
+	else if (args.model_type == "instruct"){
+	    prompt_text = "<|begin_of_text|><|start_header_id|>user<|end_header_id|> " + input_text + " <|eot_id|><|start_header_id|>assistant<|end_header_id|> ";
+	}
+	else{
+	    std::cout << "Error! Invalid model type found, please set model type as instruct or base for llama3";
+	    return 1;
+	}
+        std::cout << " #### sentence " << sentence_counter << ": " << prompt_text << std::endl;
         tokenize(tokenizer, prompt_text.c_str());
         input_ids = tokenizer.get_tensor("input_ids");
         attention_mask = tokenizer.get_tensor("attention_mask");
@@ -531,7 +546,7 @@ int main(int argc, char* argv[]) try {
         }
         
         text_streamer.end();
-
+	sentence_counter++;
         if (count > 0) {
 	    double avg_time = total_time / count;
             std::cout << "Other Avg inference took total " << total_time << " ms token num " << count << " first " << first_time << " ms " << " avg " << total_time / (count) << " ms" << std::endl;
