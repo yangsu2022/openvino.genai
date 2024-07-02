@@ -25,3 +25,7 @@ target_link_libraries(minicpm PRIVATE openvino_tokenizers)
 add_subdirectory(llm/qwen_cpp)
 target_compile_definitions(qwen PRIVATE OPENVINO_TOKENIZERS_PATH=\"$<TARGET_FILE:openvino_tokenizers>\")
 target_link_libraries(qwen PRIVATE openvino_tokenizers)
+
+add_subdirectory(llm/phi_cpp)
+target_compile_definitions(phi PRIVATE OPENVINO_TOKENIZERS_PATH=\"$<TARGET_FILE:openvino_tokenizers>\")
+target_link_libraries(phi PRIVATE openvino_tokenizers)
