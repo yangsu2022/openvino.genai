@@ -58,6 +58,7 @@ struct Args {
     int output_fixed_len = 0;
     std::vector<int32_t> selected_inputs;
     bool print_inputs_info = false;
+    std::string cache_dir = "llm-cache";
 };
 
 static void usage(const std::string& prog) {
@@ -76,8 +77,9 @@ static void usage(const std::string& prog) {
         << "  --temp N                temperature (default: 0.95)\n"
         << "  --repeat_penalty N      penalize repeat sequence of tokens (default: 1.0, 1.0 = disabled)\n"
         << "  --output_fixed_len N    set output fixed lenth (default: 0, output lenth is determined by the model)\n"
-        << "  --print_inputs_info      print inputs id and token length (default: false)\n"
-        << "  --select_inputs         set input ids to run with comma separated list (ex: \"1,3,1,3\")\n";
+        << "  --print_inputs_info     print inputs id and token length (default: false)\n"
+        << "  --select_inputs         set input ids to run with comma separated list (ex: \"1,3,1,3\")\n"
+        << "  --cache_dir             Cache directory to store model cache, default is 'llm_cache', set to '' to disable model cache\n";
 }
 
 static Args parse_args(const std::vector<std::string>& argv) {
@@ -147,6 +149,9 @@ static Args parse_args(const std::vector<std::string>& argv) {
         else if (arg == "--print_inputs_info") {
             args.print_inputs_info = true;
         }
+	else if (arg == "--cache_dir") {
+	    args.cache_dir = argv[++i];
+	}
         else {
             std::cerr << "Unknown argument: " << arg << std::endl;
             usage(argv[0]);
@@ -413,7 +418,7 @@ int main(int argc, char* argv[]) try {
 	
     ov::AnyMap device_config = {};
     if (device.find("CPU") != std::string::npos) {
-        device_config[ov::cache_dir.name()] = "llm-cache";
+        device_config[ov::cache_dir.name()] = args.cache_dir;
         device_config[ov::hint::scheduling_core_type.name()] = ov::hint::SchedulingCoreType::PCORE_ONLY;
         device_config[ov::hint::enable_hyper_threading.name()] = false;
         device_config[ov::hint::enable_cpu_pinning.name()] = true;
@@ -421,7 +426,7 @@ int main(int argc, char* argv[]) try {
     }
 
     if (device.find("GPU") != std::string::npos) {
-        device_config[ov::cache_dir.name()] = "llm-cache";
+        device_config[ov::cache_dir.name()] = args.cache_dir;
         device_config[ov::intel_gpu::hint::queue_throttle.name()] = ov::intel_gpu::hint::ThrottleLevel::MEDIUM;
         device_config[ov::intel_gpu::hint::queue_priority.name()] = ov::hint::Priority::MEDIUM;
         device_config[ov::intel_gpu::hint::host_task_priority.name()] = ov::hint::Priority::HIGH;

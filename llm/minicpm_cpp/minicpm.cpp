@@ -56,6 +56,7 @@ struct Args {
     float temp = 0.95;
     float repeat_penalty = 1.0;
     int output_fixed_len = 0;
+    std::string cache_dir = "llm-cache";
 };
 
 static void usage(const std::string& prog) {
@@ -73,7 +74,8 @@ static void usage(const std::string& prog) {
         << "  --top_p N               top-p sampling (default: 0.7)\n"
         << "  --temp N                temperature (default: 0.95)\n"
         << "  --repeat_penalty N      penalize repeat sequence of tokens (default: 1.0, 1.0 = disabled)\n"
-        << "  --output_fixed_len N    set output fixed lenth (default: 0, output lenth is determined by the model)\n";
+        << "  --output_fixed_len N    set output fixed lenth (default: 0, output lenth is determined by the model)\n"
+        << "  --cache_dir             PATH        Cache directory to store model cache, default is 'llm_cache', set to '' to disable model cache\n";	
 }
 
 static Args parse_args(const std::vector<std::string>& argv) {
@@ -118,6 +120,9 @@ static Args parse_args(const std::vector<std::string>& argv) {
         }
         else if (arg == "--output_fixed_len") {
             args.output_fixed_len = std::stoi(argv[++i]);
+        }
+	else if (arg == "--cache_dir") {
+            args.cache_dir = argv[++i];
         }
         else {
             std::cerr << "Unknown argument: " << arg << std::endl;
@@ -386,7 +391,7 @@ int main(int argc, char* argv[]) try {
 	
     ov::AnyMap device_config = {};
     if (device.find("CPU") != std::string::npos) {
-        device_config[ov::cache_dir.name()] = "llm-cache";
+        device_config[ov::cache_dir.name()] = args.cache_dir;
         device_config[ov::hint::scheduling_core_type.name()] = ov::hint::SchedulingCoreType::PCORE_ONLY;
         device_config[ov::hint::enable_hyper_threading.name()] = false;
         device_config[ov::hint::enable_cpu_pinning.name()] = true;
@@ -394,7 +399,7 @@ int main(int argc, char* argv[]) try {
     }
 
     if (device.find("GPU") != std::string::npos) {
-        device_config[ov::cache_dir.name()] = "llm-cache";
+        device_config[ov::cache_dir.name()] = args.cache_dir;
         device_config[ov::intel_gpu::hint::queue_throttle.name()] = ov::intel_gpu::hint::ThrottleLevel::MEDIUM;
         device_config[ov::intel_gpu::hint::queue_priority.name()] = ov::hint::Priority::MEDIUM;
         device_config[ov::intel_gpu::hint::host_task_priority.name()] = ov::hint::Priority::HIGH;

@@ -54,6 +54,7 @@ struct Args {
     float repeat_penalty = 1.0;
     int output_fixed_len = 0;
     bool force_max_generation = false;
+    std::string cache_dir = "llm-cache";
 };
 
 static void usage(const std::string& prog) {
@@ -61,7 +62,7 @@ static void usage(const std::string& prog) {
         << "\n"
         << "options:\n"
         << "  -h, --help              show this help message and exit\n"
-        << "  -m, --model PATH        Qwen OpenVINO model path (default: openvino_model.xml)\n"
+        << "  -m, --model PATH        Phi-3 OpenVINO model path (default: openvino_model.xml)\n"
         << "  -token PATH             Tokenizer model path (default: tokenizer.xml)\n"
         << "  -detoken PATH           DeTokenizer model path (default: detokenizer.xml)\n"
         << "  -d, --device            Device (default: GPU)\n"
@@ -72,7 +73,8 @@ static void usage(const std::string& prog) {
         << "  --temp N                temperature (default: 0.95)\n"
         << "  --repeat_penalty N      penalize repeat sequence of tokens (default: 1.0, 1.0 = disabled)\n"
         << "  --output_fixed_len N    set output fixed lenth (default: 0, output lenth is determined by the model)\n"
-	<< "  --force_max_generation  BOOL        force llm to generate until fixed length \n";
+	<< "  --force_max_generation  force llm to generate until fixed length \n"
+        << "  --cache_dir             Cache directory to store model cache, default is 'llm_cache', set to '' to disable model cache\n";
 }
 
 static Args parse_args(const std::vector<std::string>& argv) {
@@ -120,6 +122,9 @@ static Args parse_args(const std::vector<std::string>& argv) {
         }
         else if (arg == "--output_fixed_len") {
             args.output_fixed_len = std::stoi(argv[++i]);
+        }
+	else if (arg == "--cache_dir") {
+            args.cache_dir = argv[++i];
         }
         else {
             std::cerr << "Unknown argument: " << arg << std::endl;
@@ -375,7 +380,7 @@ int main(int argc, char* argv[]) try {
     auto attention_mask = tokenizer.get_tensor("attention_mask");
     ov::InferRequest detokenizer = core.compile_model(args.detoken_model_path, "CPU").create_infer_request();
     auto duration_ms = get_duration_ms_until_now(startTime);
-    std::cout << "Load Qwen tokenizer took " << duration_ms << " ms" << std::endl;
+    std::cout << "Load Phi-3 tokenizer took " << duration_ms << " ms" << std::endl;
     std::string device = args.device;
     constexpr size_t BATCH_SIZE = 1;
     size_t convert_model;
@@ -389,7 +394,7 @@ int main(int argc, char* argv[]) try {
 	
     ov::AnyMap device_config = {};
     if (device.find("CPU") != std::string::npos) {
-        device_config[ov::cache_dir.name()] = "llm-cache";
+        device_config[ov::cache_dir.name()] = args.cache_dir;
         device_config[ov::hint::scheduling_core_type.name()] = ov::hint::SchedulingCoreType::PCORE_ONLY;
         device_config[ov::hint::enable_hyper_threading.name()] = false;
         device_config[ov::hint::enable_cpu_pinning.name()] = true;
@@ -397,7 +402,7 @@ int main(int argc, char* argv[]) try {
     }
 
     if (device.find("GPU") != std::string::npos) {
-        device_config[ov::cache_dir.name()] = "llm-cache";
+        device_config[ov::cache_dir.name()] = args.cache_dir;
         device_config[ov::intel_gpu::hint::queue_throttle.name()] = ov::intel_gpu::hint::ThrottleLevel::MEDIUM;
         device_config[ov::intel_gpu::hint::queue_priority.name()] = ov::hint::Priority::MEDIUM;
         device_config[ov::intel_gpu::hint::host_task_priority.name()] = ov::hint::Priority::HIGH;
