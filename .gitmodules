@@ -1,5 +1,5 @@
 [submodule "thirdparty/openvino_tokenizers"]
     path = thirdparty/openvino_tokenizers
     url = https://github.com/openvinotoolkit/openvino_tokenizers.git
-	branch = b08a4ae
+	branch = master
 
