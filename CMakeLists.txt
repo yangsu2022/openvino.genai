@@ -14,6 +14,10 @@ add_subdirectory(llm/chatglm_cpp)
 target_compile_definitions(chatglm PRIVATE OPENVINO_TOKENIZERS_PATH=\"$<TARGET_FILE:openvino_tokenizers>\")
 target_link_libraries(chatglm PRIVATE openvino_tokenizers)
 
+add_subdirectory(llm/glm4_cpp)
+target_compile_definitions(glm4 PRIVATE OPENVINO_TOKENIZERS_PATH=\"$<TARGET_FILE:openvino_tokenizers>\")
+target_link_libraries(glm4 PRIVATE openvino_tokenizers)
+
 add_subdirectory(llm/llama_cpp)
 target_compile_definitions(llama PRIVATE OPENVINO_TOKENIZERS_PATH=\"$<TARGET_FILE:openvino_tokenizers>\")
 target_link_libraries(llama PRIVATE openvino_tokenizers)
