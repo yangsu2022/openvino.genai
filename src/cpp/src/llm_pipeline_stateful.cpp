@@ -24,7 +24,7 @@ StatefulLLMPipeline::StatefulLLMPipeline(
     const std::string& device,
     const ov::AnyMap& properties)
     : StatefulLLMPipeline{
-        utils::singleton_core().read_model(models_path / "openvino_model.xml", {}, properties),
+        models_path,  // utils::singleton_core().read_model(models_path / "openvino_model.xml", {}, properties),
         tokenizer,
         device,
         properties,
@@ -32,21 +32,22 @@ StatefulLLMPipeline::StatefulLLMPipeline(
     } {}
 
 StatefulLLMPipeline::StatefulLLMPipeline(
-    const std::shared_ptr<ov::Model>& model,
+    const std::filesystem::path& models_path, // const std::shared_ptr<ov::Model>& model,
     const ov::genai::Tokenizer& tokenizer,
     const std::string& device,
     const ov::AnyMap& properties,
     const ov::genai::GenerationConfig& generation_config)
     : LLMPipelineImplBase(tokenizer, generation_config), m_sampler(m_tokenizer) {
-    utils::apply_slice_before_matmul_transformation(model);
-    m_kv_cache_seq_length_axis = ov::genai::utils::get_seq_len_axis(model);
+    // utils::apply_slice_before_matmul_transformation(model);
+    // m_kv_cache_seq_length_axis = ov::genai::utils::get_seq_len_axis(model);
 
     auto filtered_properties = extract_adapters_from_properties(properties, &m_generation_config.adapters);
     if (m_generation_config.adapters) {
         m_generation_config.adapters->set_tensor_name_prefix("base_model.model.");
-        m_adapter_controller = AdapterController(model, *m_generation_config.adapters, device);   // TODO: Make the prefix name configurable
+        // m_adapter_controller = AdapterController(model, *m_generation_config.adapters, device);   // TODO: Make the prefix name configurable
     }
-    ov::CompiledModel compiled_model = utils::singleton_core().compile_model(model, device, *filtered_properties);
+    // ov::CompiledModel compiled_model = utils::singleton_core().compile_model(model, device, *filtered_properties);
+    ov::CompiledModel compiled_model = utils::singleton_core().compile_model(models_path, device, *filtered_properties);
     m_model_runner = compiled_model.create_infer_request();
     ov::genai::utils::print_compiled_model_properties(compiled_model, "Stateful LLM model");
 

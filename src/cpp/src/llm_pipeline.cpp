@@ -172,7 +172,7 @@ ov::genai::LLMPipeline::LLMPipeline(
         );
     } else {
         m_pimpl = std::make_unique<StatefulLLMPipeline>(
-            utils::singleton_core().read_model(model_str, weights_tensor),
+            model_str, // utils::singleton_core().read_model(model_str, weights_tensor),
             tokenizer,
             device,
             properties,

@@ -43,8 +43,16 @@ public:
         const ov::AnyMap& plugin_config
     );
 
+    // StatefulLLMPipeline(
+    //     const std::shared_ptr<ov::Model>& model,
+    //     const ov::genai::Tokenizer& tokenizer,
+    //     const std::string& device,
+    //     const ov::AnyMap& config,
+    //     const ov::genai::GenerationConfig& generation_config
+    // );
+
     StatefulLLMPipeline(
-        const std::shared_ptr<ov::Model>& model,
+        const std::filesystem::path& models_path,
         const ov::genai::Tokenizer& tokenizer,
         const std::string& device,
         const ov::AnyMap& config,
