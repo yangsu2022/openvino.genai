@@ -28,7 +28,8 @@ set (SAMPLE_LIST
     lora_greedy_causal_lm
     multinomial_causal_lm
     prompt_lookup_decoding_lm
-    speculative_decoding_lm)
+    speculative_decoding_lm
+    gguf_example)
 
 foreach(sample IN LISTS SAMPLE_LIST)
     add_sample_executable(${sample})
