@@ -133,7 +133,7 @@ std::shared_ptr<ov::Model> create_llama_model(
     }
     model->set_rt_info("8.0", {"runtime_options", "ACTIVATIONS_SCALE_FACTOR"});
 
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(
+    auto duration = std::chrono::duration<double>(
         std::chrono::high_resolution_clock::now() - start_time).count();
     std::cout << "Model generation done. Time: " << duration << "s" << std::endl;
 
@@ -144,7 +144,7 @@ std::shared_ptr<ov::Model> create_from_gguf(const std::string& model_path) {
 
     auto start_time = std::chrono::high_resolution_clock::now();
     auto [config, consts] = load_gguf(model_path);
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(
+    auto duration = std::chrono::duration<double>(
         std::chrono::high_resolution_clock::now() - start_time).count();
     std::cout << "load_gguf done. Time: " << duration << "s" << std::endl;
 
