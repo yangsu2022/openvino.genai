@@ -9,27 +9,42 @@
 
 int main(int argc, char* argv[]) try {
     if (argc < 3) {
-        throw std::runtime_error(std::string{"Usage: "} + argv[0] + " <MODEL_DIR> <TOKENIZER_DIR> <OUTPUT_DIR>");
+        throw std::runtime_error(std::string{"Usage: "} + argv[0] + " <MODEL_DIR> <TOKENIZER_DIR> <OUTPUT_DIR> <DEVICE> <PROMPT>");
     }
 
     std::string models_path = argv[1];  
     std::string tokenizer_path = argv[2];
     std::string output_path = argv[3];
+    std::string device = argv[4];
+    std::string prompt = argv[5];
+
 
     std::cout << "Loading model from: " << models_path << std::endl;
     std::cout << "Loading tokenizer model from: " << tokenizer_path << std::endl;
     std::cout << "Saving converted model to: " << output_path << std::endl;
+    std::cout << "Run model on: " << device << std::endl;
+    std::cout << "Using prompt: " << prompt << std::endl;
 
     auto model = create_from_gguf(models_path);
 
     std::cout << "Finished create_from_gguf" << std::endl;
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+    
+    ov::save_model(model, output_path + "/openvino_model.xml", false);
+
+    auto duration = std::chrono::duration<double>(
+        std::chrono::high_resolution_clock::now() - start_time).count();
+    std::cout << "save_model done. Time: " << duration << "s" << std::endl;
+
+    std::cout << "Model successfully saved to: " << output_path << "/openvino_model.xml" << std::endl;
     
     ov::Core core;
 
     ov::genai::Tokenizer tokenizer(tokenizer_path);
 
     std::cout << "Starting model compiling " << std::endl;
-    ov::CompiledModel compiled_model = core.compile_model(model, "GPU");
+    ov::CompiledModel compiled_model = core.compile_model(model, device);
     ov::InferRequest infer_request = compiled_model.create_infer_request();
 
     ov::genai::GenerationConfig config;
@@ -42,18 +57,10 @@ int main(int argc, char* argv[]) try {
     ov::genai::LLMPipeline pipe(infer_request, tokenizer);
 
     // ov::genai::GenerationConfig config;
-    std::string result = pipe.generate("What is OpenVINO?", ov::genai::generation_config(config));
+    std::string result = pipe.generate(prompt, ov::genai::generation_config(config));
     std::cout << result << std::endl;
 
-    auto start_time = std::chrono::high_resolution_clock::now();
-    
-    ov::save_model(model, output_path + "/openvino_model.xml", false);
 
-    auto duration = std::chrono::duration<double>(
-        std::chrono::high_resolution_clock::now() - start_time).count();
-    std::cout << "save_model done. Time: " << duration << "s" << std::endl;
-
-    std::cout << "Model successfully saved to: " << output_path << "/openvino_model.xml" << std::endl;
 
 } catch (const std::exception& error) {
     try {
