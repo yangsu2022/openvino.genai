@@ -39,6 +39,9 @@ public:
 
     ov::Tensor get_inputs_embeds(const std::string& prompt, const std::vector<ov::genai::EncodedImage>& images, ov::genai::VLMPerfMetrics& metrics, bool recalculate_merged_embeddings = true);
 
+    // std::pair<ov::Tensor, ov::Tensor> get_inputs_embeds_and_token_type_ids(const std::string& prompt, const std::vector<ov::Tensor>& images, ov::genai::VLMPerfMetrics& metrics);
+    // std::pair<ov::Tensor, ov::Tensor> get_inputs_embeds_and_token_type_ids(const std::string& prompt, const std::vector<ov::genai::EncodedImage>& images, ov::genai::VLMPerfMetrics& metrics, bool recalculate_merged_embeddings = true);
+
     std::vector<ov::genai::EncodedImage> encode_images(const std::vector<ov::Tensor>& images);
 
     // compute position ids for language model input
@@ -101,6 +104,9 @@ private:
         virtual ov::Tensor get_inputs_embeds(const std::string& prompt, const std::vector<ov::genai::EncodedImage>& images, ov::genai::VLMPerfMetrics& metrics, bool recalculate_merged_embeddings = true) = 0;
 
         ov::Tensor get_inputs_embeds(const std::string& prompt, const std::vector<ov::Tensor>& images, ov::genai::VLMPerfMetrics& metrics);
+
+        // virtual std::pair<ov::Tensor, ov::Tensor> get_inputs_embeds_and_token_type_ids(const std::string& prompt, const std::vector<ov::genai::EncodedImage>& images, ov::genai::VLMPerfMetrics& metrics, bool recalculate_merged_embeddings = true) = 0;
+        // std::pair<ov::Tensor, ov::Tensor> get_inputs_embeds_and_token_type_ids(const std::string& prompt, const std::vector<ov::Tensor>& images, ov::genai::VLMPerfMetrics& metrics);
 
         virtual std::vector<ov::genai::EncodedImage> encode_images(const std::vector<ov::Tensor>& images);
     
@@ -168,6 +174,7 @@ private:
     friend class InputsEmbedderInternVLChat;
     friend class InputsEmbedderPhi3V;
     friend class InputsEmbedderQwen2VL;
+    friend class InputsEmbedderGEMMA3;
 };
 
 template <typename Func>

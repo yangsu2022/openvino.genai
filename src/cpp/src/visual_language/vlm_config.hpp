@@ -16,6 +16,7 @@ enum class VLMModelType {
     INTERNVL_CHAT,
     PHI3_V,
     QWEN2_VL,
+    GEMMA3,
 };
 
 /// @brief A Configuration class passed to VLMPipeline and used to
@@ -75,6 +76,13 @@ public:
     /// @brief A string token denoting end of vision embeddings for Qwen2VL model.
     std::string vision_end_token = "<|vision_end|>";
 
+    /// @brief A string token denoting start of image embeddings for Gemma3-4b-it model.
+    std::string image_soft_token = "<image_soft_token>";
+    /// @brief A string token denoting start of vision embeddings for Gemma3-4b-it model.
+    std::string start_of_image = "<start_of_image>";
+    /// @brief A string token denoting end of vision embeddings for Gemma3-4b-it model.
+    std::string end_of_image = "<end_of_image>";
+    
     /// @brief Default constructor.
     VLMConfig() = default;
     /// @brief Construct VLMConfig from values in json_path.

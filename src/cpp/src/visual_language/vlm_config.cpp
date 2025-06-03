@@ -12,6 +12,7 @@ namespace {
 
 VLMModelType to_vlm_model_type(const std::string& value) {
     static const std::unordered_map<std::string, VLMModelType> model_types_map = {
+        {"gemma3", VLMModelType::GEMMA3},
         {"minicpmv", VLMModelType::MINICPM},
         {"llava", VLMModelType::LLAVA},
         {"llava_next", VLMModelType::LLAVA_NEXT},
