@@ -20,7 +20,7 @@ clip_image_f32 preprocess_clip_image_gemma3(const clip_image_u8& image, const Pr
         float scale = static_cast<float>(target_size) / std::min(image.nx, image.ny);
         int new_width = static_cast<int>(image.nx * scale);
         int new_height = static_cast<int>(image.ny * scale);
-        bicubic_resize(image, resized_image, new_width, new_height);
+        bilinear_resize(image, resized_image, new_width, new_height);
     } else {
         resized_image = image;
     }
@@ -111,6 +111,10 @@ InputsEmbedderGEMMA3::InputsEmbedderGEMMA3(
     const ov::AnyMap device_config) :
     IInputsEmbedder(vlm_config, models_map, tokenizer, config_dir_path, device, device_config) { }
 
+bool InputsEmbedderGEMMA3::has_token_type_ids() const {
+    return true;
+}
+
 std::vector<ov::genai::EncodedImage> InputsEmbedderGEMMA3::encode_images(const std::vector<ov::Tensor>& images) {
     std::vector<EncodedImage> embeds;
 
@@ -128,14 +132,24 @@ std::vector<ov::genai::EncodedImage> InputsEmbedderGEMMA3::encode_images(const s
     return embeds;
 }
 
+ov::Tensor InputsEmbedderGEMMA3::get_inputs_embeds(
+    const std::string& prompt,
+    const std::vector<EncodedImage>& images,
+    VLMPerfMetrics& metrics,
+    bool recalculate_merged_embeddings) {
+    throw std::runtime_error("GEMMA3 requires using get_inputs_embeds_with_token_type_ids");
+}
 
-ov::Tensor InputsEmbedderGEMMA3::get_inputs_embeds(const std::string& prompt, const std::vector<ov::genai::EncodedImage>& images, ov::genai::VLMPerfMetrics& metrics, bool recalculate_merged_embeddings) {
-    // std::string image_token = m_vlm_config.im_start; //<image>
+std::pair<ov::Tensor, ov::Tensor> InputsEmbedderGEMMA3::get_inputs_embeds_with_token_type_ids(
+    const std::string& prompt,
+    const std::vector<EncodedImage>& images,
+    VLMPerfMetrics& metrics,
+    bool recalculate_merged_embeddings) {
+
     std::string start_of_image = m_vlm_config.start_of_image;
-    std::string image_token = m_vlm_config.image_soft_token; // <image_soft_token>
+    std::string image_token = m_vlm_config.image_soft_token; // <image_soft_token> instead of <image>
     std::string end_of_image = m_vlm_config.end_of_image;
 
-    // std::string formatted_prompt = "<bos><start_of_turn>user\nYou are a helpful assistant.\n\n\n\n"; // 
     std::string formatted_prompt = "You are a helpful assistant.\n\n\n\n";
 
     std::vector<ov::Tensor> image_embeds;
@@ -153,20 +167,20 @@ ov::Tensor InputsEmbedderGEMMA3::get_inputs_embeds(const std::string& prompt, co
     }
     formatted_prompt += prompt;
   
-
-
     ov::Tensor input_ids = get_encoded_input_ids(formatted_prompt, metrics);
 
     CircularBufferQueueElementGuard<EmbeddingsRequest> embeddings_request_guard(m_embedding->get_request_queue().get());
     EmbeddingsRequest& req = embeddings_request_guard.get();
     ov::Tensor text_embeds = m_embedding->infer(req, input_ids);
-    std::cout << "text_embeds shape: " << text_embeds.get_shape() << std::endl; // [1,528,2560]
-    std::for_each(image_embeds.begin(), image_embeds.end(), [](const auto& tensor) { std::cout << "image_embeds shape: " << tensor.get_shape() << std::endl; });
 
     if (images.empty()) {
         ov::Tensor inputs_embeds(text_embeds.get_element_type(), text_embeds.get_shape());
         std::memcpy(inputs_embeds.data(), text_embeds.data(), text_embeds.get_byte_size());
-        return inputs_embeds;
+
+        const size_t seq_len = text_embeds.get_shape()[1];
+        std::vector<int64_t> token_type_ids_data(seq_len, 0);
+        auto token_type_ids_all_0 = ov::Tensor(ov::element::i64, {1, seq_len}, token_type_ids_data.data());
+        return {inputs_embeds, token_type_ids_all_0};
     }
 
     auto start_tokenizer_time = std::chrono::steady_clock::now();
@@ -176,41 +190,18 @@ ov::Tensor InputsEmbedderGEMMA3::get_inputs_embeds(const std::string& prompt, co
     metrics.raw_metrics.tokenization_durations[metrics.raw_metrics.tokenization_durations.size() - 1] += ov::genai::MicroSeconds(PerfMetrics::get_microsec(end_tokenizer_time - start_tokenizer_time));
     int64_t image_token_id = encoded_image_token.data<int64_t>()[encoded_image_token.get_size() - 1];
 
-    // generate token_type_ids
+    auto inputs_embeds = merge_text_and_image_embeddings_llava(input_ids, text_embeds, image_embeds, image_token_id);
+
     const int64_t* input_ids_data = input_ids.data<const int64_t>();
     const ov::Shape& shape = input_ids.get_shape();
     size_t num_elements = input_ids.get_size();
-
     ov::Tensor token_type_ids(ov::element::i64, shape);
     int64_t* token_type_data = token_type_ids.data<int64_t>();
-
     for (size_t i = 0; i < num_elements; ++i) {
         token_type_data[i] = (input_ids_data[i] == image_token_id) ? 1 : 0;
     }
 
-    auto inputs_embeds = merge_text_and_image_embeddings_llava(input_ids, text_embeds, image_embeds, image_token_id);
-    // concate token_type_ids with inputs_embeds
-    const size_t batch = inputs_embeds.get_shape()[0];
-    const size_t seq_len = inputs_embeds.get_shape()[1];
-    const size_t dim_embeds = inputs_embeds.get_shape()[2];
-    const size_t dim_concat = dim_embeds + 1;
-
-    const float* embeds_data = inputs_embeds.data<const float>();
-    const int64_t* token_ids_data = token_type_ids.data<const int64_t>();
-
-    ov::Tensor concat_tensor(ov::element::f32, {batch, seq_len, dim_concat});
-    float* concat_data = concat_tensor.data<float>();
-
-    for (size_t i = 0; i < batch * seq_len; ++i) {
-        std::memcpy(
-            concat_data + i * dim_concat,
-            embeds_data + i * dim_embeds,
-            sizeof(float) * dim_embeds
-        );
-        concat_data[i * dim_concat + dim_embeds] = static_cast<float>(token_ids_data[i]);
-    }
-
-    return concat_tensor;
+    return {inputs_embeds, token_type_ids};
 }
 
 ov::Tensor InputsEmbedderGEMMA3::merge_text_and_image_embeddings_llava(const ov::Tensor& input_ids,

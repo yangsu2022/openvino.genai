@@ -35,7 +35,19 @@ public:
         const std::string& device,
         const ov::AnyMap device_config);
         
-    ov::Tensor get_inputs_embeds(const std::string& prompt, const std::vector<ov::genai::EncodedImage>& images, ov::genai::VLMPerfMetrics& metrics, bool recalculate_merged_embeddings = true) override;
+    ov::Tensor get_inputs_embeds(
+        const std::string& prompt,
+        const std::vector<EncodedImage>& images,
+        VLMPerfMetrics& metrics,
+        bool recalculate_merged_embeddings = true) override;
+
+    std::pair<ov::Tensor, ov::Tensor> get_inputs_embeds_with_token_type_ids(
+        const std::string& prompt,
+        const std::vector<EncodedImage>& images,
+        VLMPerfMetrics& metrics,
+        bool recalculate_merged_embeddings = true) override;
+
+    bool has_token_type_ids() const override;
 
     std::vector<ov::genai::EncodedImage> encode_images(const std::vector<ov::Tensor>& images) override;
 protected:

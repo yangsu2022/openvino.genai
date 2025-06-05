@@ -183,8 +183,21 @@ public:
 
         m_inputs_embedder->set_apply_chat_template_status(generation_config.apply_chat_template);
 
+        ov::Tensor inputs_embeds;
+        std::optional<ov::Tensor> token_type_ids;
+
         auto start_get_inputs_embeds = std::chrono::steady_clock::now();
-        ov::Tensor inputs_embeds = m_inputs_embedder->get_inputs_embeds(prompt, rgbs, perf_metrics);
+
+        if (m_inputs_embedder->has_token_type_ids()) {
+            auto [embeds, tt_ids] = m_inputs_embedder->get_inputs_embeds_with_token_type_ids(
+                prompt, rgbs, perf_metrics);
+            inputs_embeds = embeds;
+            token_type_ids = tt_ids;
+        } else {
+            inputs_embeds = m_inputs_embedder->get_inputs_embeds(
+                prompt, rgbs, perf_metrics);
+        }
+        
         auto end_get_inputs_embeds = std::chrono::steady_clock::now();
 
         if (m_is_npu) {
@@ -231,47 +244,12 @@ public:
         if (m_sampler.get_seed() != generation_config.rng_seed) {
             m_sampler.set_seed(generation_config.rng_seed);
         }
-        // print log
-        // std::cout << "start get_lm_encoded_results " << std::endl;
 
        
         const size_t batch_size = inputs_embeds.get_shape()[0];
         const size_t seq_len = inputs_embeds.get_shape()[1];
         const size_t dim_concat = inputs_embeds.get_shape()[2];
         const size_t dim_embeds = dim_concat - 1;
-        // all zeros
-        // std::vector<int64_t> token_type_ids_data(seq_len, 0);
-        // auto token_type_ids = ov::Tensor(ov::element::i64, {1, seq_len}, token_type_ids_data.data());
-        
-        // de-concate from input_ids
-        // ov::Tensor inputs_embeds;
-        ov::Tensor token_type_ids;
-
-        if (dim_concat == 2561) {
-            const float* concat_data = inputs_embeds.data<const float>();
-
-            ov::Tensor new_inputs_embeds(ov::element::f32, {batch_size, seq_len, dim_embeds});
-            float* embeds_data = new_inputs_embeds.data<float>();
-
-            token_type_ids = ov::Tensor(ov::element::i64, {batch_size, seq_len});
-            int64_t* token_ids_data = token_type_ids.data<int64_t>();
-
-            for (size_t i = 0; i < batch_size * seq_len; ++i) {
-                std::memcpy(
-                    embeds_data + i * dim_embeds,
-                    concat_data + i * dim_concat,
-                    sizeof(float) * dim_embeds
-                );
-                token_ids_data[i] = static_cast<int64_t>(concat_data[i * dim_concat + dim_embeds]);
-            }
-
-            inputs_embeds = new_inputs_embeds; // only overwrite at the end if safe
-        } else {
-            token_type_ids = ov::Tensor(ov::element::i64, {1, seq_len});
-            auto* token_ptr = token_type_ids.data<int64_t>();
-            std::fill(token_ptr, token_ptr + seq_len, 0);
-        }
-
 
         ov::genai::utils::GenerationFinishInfo finish_info = ov::genai::get_lm_encoded_results(m_language, inputs_embeds, new_atten_mask, streamer_ptr, m_sampler, requests,
                                                                                                position_ids, token_type_ids, kv_cache_state, m_embedding, rope_delta, m_max_kv_cache_size);
