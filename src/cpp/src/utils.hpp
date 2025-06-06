@@ -105,9 +105,7 @@ struct KVAxesPosition {
 KVAxesPosition get_kv_axes_pos(std::shared_ptr<const ov::Model> model);
 
 class KVCacheState {
-    std::vector<int64_t> state;  
-    std::vector<int64_t> token_type_ids_state;  
-
+    std::vector<int64_t> state;
 public:
     size_t num_tokens_to_trim = 0;
     size_t seq_length_axis = 2;
@@ -117,23 +115,14 @@ public:
         return state;
     }
 
-    const std::vector<int64_t>& get_token_type_ids_state() const {
-        return token_type_ids_state;
-    }
-
-    void add_inputs(const ov::Tensor& input_ids) {
-        std::copy_n(input_ids.data<int64_t>(), input_ids.get_size(), std::back_inserter(state));
-    }
-
-    void add_token_type_ids(const ov::Tensor& token_type_ids) {
-        std::copy_n(token_type_ids.data<int64_t>(), token_type_ids.get_size(), std::back_inserter(token_type_ids_state));
+    void add_inputs(const ov::Tensor& inputs_ids) {
+        std::copy_n(inputs_ids.data<int64_t>(), inputs_ids.get_size(), std::back_inserter(state));
     }
 
     void reset_state() {
         reset_mem_state = false;
         num_tokens_to_trim = 0;
         state.clear();
-        token_type_ids_state.clear();  // 新增清空 token_type_ids
     }
 };
 

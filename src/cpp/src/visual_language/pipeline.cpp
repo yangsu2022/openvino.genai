@@ -265,8 +265,6 @@ public:
 
         std::string decoded_results = decoded.texts.at(0);
         
-        // std::cout << "\n decoded_results " << decoded_results << std::endl;
-
         if (m_is_chat_conversation)
             m_inputs_embedder->update_chat_history(decoded_results, finish_info.streaming_finish_status);
         else

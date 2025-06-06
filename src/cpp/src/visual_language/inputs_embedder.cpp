@@ -112,8 +112,6 @@ ov::Tensor InputsEmbedder::IInputsEmbedder::apply_chat_template_tokenize(const s
         new_templated_chat_history = m_tokenizer.apply_chat_template(m_history, add_generation_prompt);
         auto start_tokenizer_time = std::chrono::steady_clock::now();
         
-        // std::cout << "new_templated_chat_history: " << new_templated_chat_history << std::endl;
-        
         ov::Tensor new_chat_tokens = m_tokenizer.encode(new_templated_chat_history, ov::genai::add_special_tokens(false)).input_ids;
         auto end_tokenizer_time = std::chrono::steady_clock::now();
         metrics.raw_metrics.tokenization_durations.emplace_back(PerfMetrics::get_microsec(end_tokenizer_time - start_tokenizer_time));
@@ -151,7 +149,6 @@ ov::Tensor InputsEmbedder::IInputsEmbedder::update_history(const ov::Tensor& new
 
 ov::Tensor InputsEmbedder::IInputsEmbedder::get_encoded_input_ids(const std::string& prompt, ov::genai::VLMPerfMetrics& metrics) {
     const auto new_chat_tokens = apply_chat_template_tokenize(prompt, metrics);
-    std::cout << "new_chat_tokens shape: " << new_chat_tokens.get_shape() << std::endl; // real len of prompt
     auto new_input_ids = update_history(new_chat_tokens);
     m_prev_hist_length = m_kv_cache_state.get_state().size();
     m_kv_cache_state.add_inputs(new_input_ids);

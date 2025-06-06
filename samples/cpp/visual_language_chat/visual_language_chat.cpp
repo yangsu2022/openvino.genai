@@ -18,12 +18,12 @@ int main(int argc, char* argv[]) try {
 
     // GPU and NPU can be used as well.
     // Note: If NPU selected, only language model will be run on NPU
-    std::string device = "GPU";
+    std::string device = "CPU";
     ov::AnyMap enable_compile_cache;
     if (device == "GPU") {
         // Cache compiled models on disk for GPU to save time on the
         // next run. It's not beneficial for CPU.
-        enable_compile_cache.insert({ov::cache_dir("")}); // vlm_cache
+        enable_compile_cache.insert({ov::cache_dir("vlm_cache")});
     }
     ov::genai::VLMPipeline pipe(argv[1], device, enable_compile_cache);
 
@@ -35,8 +35,7 @@ int main(int argc, char* argv[]) try {
     pipe.start_chat();
     std::cout << "question:\n";
 
-    // std::getline(std::cin, prompt);
-    prompt = "What is shown in this image?"; 
+    std::getline(std::cin, prompt);
     pipe.generate(prompt,
                   ov::genai::images(rgbs),
                   ov::genai::generation_config(generation_config),
