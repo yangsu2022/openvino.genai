@@ -70,6 +70,19 @@ install(TARGETS benchmark_vlm_pld
         EXCLUDE_FROM_ALL)
 
 # create benchmark executable
+add_executable(benchmark_vlm_text_only benchmark_vlm_text_only.cpp load_image.cpp ../text_generation/read_prompt_from_file.cpp)
+target_include_directories(benchmark_vlm_text_only PRIVATE "${CMAKE_BINARY_DIR}")
+target_link_libraries(benchmark_vlm_text_only PRIVATE openvino::genai cxxopts::cxxopts)
+set_target_properties(benchmark_vlm_text_only PROPERTIES
+    # Ensure out of box LC_RPATH on macOS with SIP
+    INSTALL_RPATH_USE_LINK_PATH ON)
+
+install(TARGETS benchmark_vlm_text_only
+        RUNTIME DESTINATION samples_bin/
+        COMPONENT samples_bin
+        EXCLUDE_FROM_ALL)
+
+# create benchmark executable
 add_executable(benchmark_vlm_pld_acc benchmark_vlm_pld_acc.cpp load_image.cpp ../text_generation/read_prompt_from_file.cpp)
 target_include_directories(benchmark_vlm_pld_acc PRIVATE "${CMAKE_BINARY_DIR}")
 target_link_libraries(benchmark_vlm_pld_acc PRIVATE openvino::genai cxxopts::cxxopts)
