@@ -82,6 +82,19 @@ install(TARGETS benchmark_vlm_pld_acc
         COMPONENT samples_bin
         EXCLUDE_FROM_ALL)
 
+# create benchmark executable
+add_executable(benchmark_vlm_pld_acc_compare benchmark_vlm_pld_acc_compare.cpp load_image.cpp ../text_generation/read_prompt_from_file.cpp)
+target_include_directories(benchmark_vlm_pld_acc_compare PRIVATE "${CMAKE_BINARY_DIR}")
+target_link_libraries(benchmark_vlm_pld_acc_compare PRIVATE openvino::genai cxxopts::cxxopts)
+set_target_properties(benchmark_vlm_pld_acc_compare PROPERTIES
+    # Ensure out of box LC_RPATH on macOS with SIP
+    INSTALL_RPATH_USE_LINK_PATH ON)
+
+install(TARGETS benchmark_vlm_pld_acc_compare
+        RUNTIME DESTINATION samples_bin/
+        COMPONENT samples_bin
+        EXCLUDE_FROM_ALL)
+
 # create prompt_lookup_decoding_vlm executable
 add_executable(prompt_lookup_decoding_vlm prompt_lookup_decoding_vlm.cpp load_image.cpp ../text_generation/read_prompt_from_file.cpp)
 target_include_directories(prompt_lookup_decoding_vlm PRIVATE "${CMAKE_BINARY_DIR}")
