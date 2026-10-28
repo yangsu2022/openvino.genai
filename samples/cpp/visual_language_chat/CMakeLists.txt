@@ -35,6 +35,21 @@ install(TARGETS visual_language_chat
         COMPONENT samples_bin
         EXCLUDE_FROM_ALL)
 
+# create NPU variant of the main sample
+
+add_executable(visual_language_chat_npu visual_language_chat_npu.cpp load_image.cpp)
+target_include_directories(visual_language_chat_npu PRIVATE "${CMAKE_BINARY_DIR}")
+target_link_libraries(visual_language_chat_npu PRIVATE openvino::genai)
+
+set_target_properties(visual_language_chat_npu PROPERTIES
+    # Ensure out of box LC_RPATH on macOS with SIP
+    INSTALL_RPATH_USE_LINK_PATH ON)
+
+install(TARGETS visual_language_chat_npu
+        RUNTIME DESTINATION samples_bin/
+        COMPONENT samples_bin
+        EXCLUDE_FROM_ALL)
+
 # create lora sample executable
 
 add_executable(visual_language_lora visual_language_lora.cpp load_image.cpp)
