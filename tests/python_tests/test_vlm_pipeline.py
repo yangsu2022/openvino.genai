@@ -169,7 +169,7 @@ MODEL_GEMMA = "optimum-intel-internal-testing/tiny-random-gemma3"
 MODEL_GEMMA3N = "optimum-intel-internal-testing/tiny-random-gemma3n"
 MODEL_QWEN3_OMNI = "optimum-intel-internal-testing/tiny-random-qwen3-omni"
 MODEL_DEEPSEEK_OCR2 = "optimum-intel-internal-testing/tiny-random-deepseek-ocr-2"
-MODEL_PADDLEOCR_VL = "optimum-intel-internal-testing/tiny-random-paddleocr-vl"
+MODEL_PADDLEOCR_VL = "PaddlePaddle/PaddleOCR-VL-1.6"  # tiny-random-paddleocr-vl is not public (HTTP 401)
 
 MODEL_IDS: list[str] = []
 if is_transformers_version("<", "5.0"):
