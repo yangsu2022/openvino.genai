@@ -173,6 +173,8 @@ class VisualTextEvaluator(TextEvaluator):
                 generate_kwargs["return_audio"] = False
             else:
                 generate_kwargs["max_new_tokens"] = max_new_tokens
+            # some HF configs (e.g. PaddleOCR-VL) default to use_cache=False -> full recompute per token
+            generate_kwargs["use_cache"] = True
             tokens = model.generate(**generate_kwargs)
             if is_hf_omni and isinstance(tokens, tuple):
                 # (text_ids, audio) is returned when return_audio=False on transformers < 4.58
